@@ -1,3 +1,7 @@
 package main
 
-func main() {}
+import "github.com/giantswarm/nancy-fixer/cmd"
+
+func main() {
+	cmd.Execute()
+}
