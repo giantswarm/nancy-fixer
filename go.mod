@@ -27,5 +27,3 @@ require (
 	golang.org/x/term v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 )
-
-replace golang.org/x/net => golang.org/x/net v0.10.0
