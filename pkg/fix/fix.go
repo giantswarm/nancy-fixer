@@ -281,7 +281,7 @@ func updateParentAndCheck(
 	cwd string,
 	parent modules.Package,
 ) (ParentUpdateResult, error) {
-	logger.Info(
+	logger.Debug(
 		"Checking updates for parent package ",
 		logger.Args("parent", parent.Name, "version", parent.Version),
 	)
