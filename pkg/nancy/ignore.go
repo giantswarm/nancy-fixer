@@ -25,8 +25,11 @@ func IgnoreVulnerabilities(
 		}
 	}
 	lines := strings.Split(string(file), "\n")
+	lines = lines[:len(lines)-1]
 
 	lines = updateNancyIgnoreLines(lines, vulnerabilities, p)
+
+	lines = append(lines, "")
 
 	newFile := strings.Join(lines, "\n")
 	err = os.WriteFile(nancyIgnorePath, []byte(newFile), 0644)
