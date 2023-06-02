@@ -70,7 +70,7 @@ func Fix(logger *pterm.Logger, cwd string) error {
 			return microerror.Mask(err)
 		}
 
-		logger.Info(fmt.Sprintf("%d vulnerable packages remaining", len(vulnerablePackages)))
+		logger.Debug(fmt.Sprintf("%d vulnerable packages remaining", len(vulnerablePackages)))
 
 	}
 
