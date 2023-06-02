@@ -230,7 +230,7 @@ func getAndUpdateParents(
 		return ParentError, nil
 	}
 
-	LogParents(logger, rootParents, moduleName)
+	LogParents(logger, rootParents, p.Name)
 
 	result, err := updateParents(logger, cwd, rootParents)
 	if result == ParentBrokeBuild ||

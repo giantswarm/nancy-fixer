@@ -1,6 +1,8 @@
 package fix
 
 import (
+	"fmt"
+
 	"github.com/pterm/pterm"
 
 	"github.com/giantswarm/nancy-fixer/pkg/modules"
@@ -9,21 +11,21 @@ import (
 func LogParents(
 	logger *pterm.Logger,
 	rootParents []modules.Package,
-	moduleName modules.PackageName,
+	packageName modules.PackageName,
 ) {
 
 	switch logger.Formatter {
 	case pterm.LogFormatterColorful:
-		logParentsColorful(logger, rootParents, moduleName)
+		logParentsColorful(logger, rootParents, packageName)
 	case pterm.LogFormatterJSON:
-		logParentsJSON(logger, rootParents, moduleName)
+		logParentsJSON(logger, rootParents, packageName)
 	}
 }
 
 func logParentsColorful(
 	logger *pterm.Logger,
 	rootParents []modules.Package,
-	moduleName modules.PackageName,
+	packageName modules.PackageName,
 ) {
 	pterm.DefaultBasicText.Println("direct dependencies that require the vulnerable package:")
 	treeNodes := []pterm.TreeNode{}
@@ -33,7 +35,7 @@ func logParentsColorful(
 		})
 	}
 	tree := pterm.TreeNode{
-		Text:     string(moduleName),
+		Text:     string(packageName),
 		Children: treeNodes,
 	}
 
@@ -47,7 +49,7 @@ func logParentsColorful(
 func logParentsJSON(
 	logger *pterm.Logger,
 	rootParents []modules.Package,
-	moduleName modules.PackageName,
+	packageName modules.PackageName,
 ) {
 	parentsMap := map[string]any{}
 	for _, parent := range rootParents {
@@ -69,12 +71,18 @@ func LogFixReasonSummary(
 }
 
 func logFixReasonSummaryColorful(fixReasonSummary FixReasonSummary) {
-	err := pterm.DefaultBarChart.WithBars([]pterm.Bar{
-		{Label: "Errors", Value: fixReasonSummary.NotFixedCount},
-		{Label: "Fixed via replace", Value: fixReasonSummary.FixedViaReplaceCount},
-		{Label: "Fixed via parent update(s)", Value: fixReasonSummary.FixedViaParentCount},
-		{Label: "Ignored", Value: fixReasonSummary.IgnoredCount},
-	}).WithHorizontal().WithShowValue().Render()
+	// err := pterm.DefaultBarChart.WithBars([]pterm.Bar{
+	// 	{Label: "Errors", Value: fixReasonSummary.NotFixedCount},
+	// 	{Label: "Fixed via replace", Value: fixReasonSummary.FixedViaReplaceCount},
+	// 	{Label: "Fixed via parent update(s)", Value: fixReasonSummary.FixedViaParentCount},
+	// 	{Label: "Ignored", Value: fixReasonSummary.IgnoredCount},
+	// }).WithHorizontal().WithShowValue().Render()
+	err := pterm.DefaultTable.WithBoxed().WithHasHeader().WithData(pterm.TableData{
+		{"Errors", fmt.Sprintf("%d", fixReasonSummary.NotFixedCount)},
+		{"Fixed via replace", fmt.Sprintf("%d", fixReasonSummary.FixedViaReplaceCount)},
+		{"Fixed via parent update(s)", fmt.Sprintf("%d", fixReasonSummary.FixedViaParentCount)},
+		{"Ignored", fmt.Sprintf("%d", fixReasonSummary.IgnoredCount)},
+	}).Render()
 	if err != nil {
 		panic(err)
 	}
