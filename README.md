@@ -6,7 +6,7 @@ vulnerabilities.
 ## Installation
 
 ```
-go install github.com/giantswarm/nancy-fixer
+go install github.com/giantswarm/nancy-fixer@latest
 ```
 
 ## Usage
