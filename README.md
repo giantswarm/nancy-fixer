@@ -30,3 +30,17 @@ For each vulnerability, `nancy-fixer` will try three steps:
 2. Update the vulnerable package by adding a `replace` in the `go.mod` file.
 3. Ignore the vulnerable package.
 
+## Limitations
+
+### Major Versions
+Currently, `nancy-fixer` is not aware of different module names for different major versions.
+For example, say you have the dependency `github.com/my/mod/v4` with version
+`v4.1.0`, but there is a version `v5.0.0` available. This would require you to 
+change the imported module to `github.com/my/mod/v5`.
+However, `nancy-fixer` will never try that.
+
+Because of how major versions worked without changing this `vN` postfix before
+go modules, `nancy-fixer` will do major version bumps for packages that did not
+yet introduce modules.
+[This stackoverflow question](https://stackoverflow.com/questions/57355929/what-does-incompatible-in-go-mod-mean-will-it-cause-harm)
+might explain more in that regard.
