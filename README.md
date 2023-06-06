@@ -4,6 +4,7 @@
 vulnerabilities.
 
 ## Installation
+Make sure that you have [nancy](https://gonancy.dev/).
 
 ```
 go install github.com/giantswarm/nancy-fixer@latest
