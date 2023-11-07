@@ -1,0 +1,6 @@
+-   id: nancy-fixer
+    name: 'nancy fixer'
+    entry: 'nancy-fixer'
+    language: 'golang'
+    args: [ "fix" ]
+    description: "Runs nancy-fixer"
