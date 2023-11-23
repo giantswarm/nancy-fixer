@@ -1,0 +1,8 @@
+name: nancy-fixer
+description: Fix Nancy discovered vulnerabilities with nancy-fixer
+branding:
+  color: orange
+  icon: shield
+runs:
+  using: "docker"
+  image: "Dockerfile"
