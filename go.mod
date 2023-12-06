@@ -3,7 +3,7 @@ module github.com/giantswarm/nancy-fixer
 go 1.20
 
 require (
-	github.com/giantswarm/microerror v0.4.0
+	github.com/giantswarm/microerror v0.4.1
 	github.com/pterm/pterm v0.12.62
 	github.com/spf13/cobra v1.7.0
 	golang.org/x/mod v0.10.0
