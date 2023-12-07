@@ -141,13 +141,13 @@ func VetSuceeds(cwd string) (healthy bool) {
 	return err == nil
 }
 
-func UpdatePackageWithReplace(cwd string, name PackageName, version SemanticVersion) error {
+func UpdatePackageWithReplace(cwd string, name PackageName, oldVersion, version SemanticVersion) error {
 	_, err := gocli.CallGoNoBuffer(
 		gocli.GoConfig{Cwd: cwd},
 		"mod",
 		"edit",
 		"-replace",
-		fmt.Sprintf("%s=%s@%s", name, name, version),
+		fmt.Sprintf("%s@%s=%s@%s", name, oldVersion, name, version),
 	)
 	if err != nil {
 		return microerror.Mask(err)

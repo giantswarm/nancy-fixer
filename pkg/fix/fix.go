@@ -463,6 +463,7 @@ func updateWithReplaceAndCheck(
 	err := modules.UpdatePackageWithReplace(
 		cwd,
 		p.Name,
+		p.Version,
 		newestVersion,
 	)
 
