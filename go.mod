@@ -8,7 +8,7 @@ require (
 	github.com/giantswarm/microerror v0.4.1
 	github.com/pterm/pterm v0.12.71
 	github.com/spf13/cobra v1.8.0
-	golang.org/x/mod v0.10.0
+	golang.org/x/mod v0.14.0
 )
 
 require (
