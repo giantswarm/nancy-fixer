@@ -6,7 +6,7 @@ toolchain go1.21.5
 
 require (
 	github.com/giantswarm/microerror v0.4.1
-	github.com/pterm/pterm v0.12.72
+	github.com/pterm/pterm v0.12.73
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/mod v0.10.0
 )
