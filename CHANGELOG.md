@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Fix infinite loop when fixing a dependency fails.
+
 ## [0.3.0] - 2023-12-07
 
 ### Changed
