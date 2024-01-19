@@ -48,17 +48,31 @@ func Fix(logger *pterm.Logger, cwd string) error {
 		if err != nil {
 			logger.Error(
 				fmt.Sprintf(
-					"Error while fixing %s@%s - set log level to debug for more info \n",
+					"Error while fixing %s@%s\n",
 					p.Name,
 					p.Version,
 				),
 			)
-			logger.Debug(err.Error())
+
+			// We want to know what failed when running on CI without enabling debug
+			logger.Error(err.Error())
 
 			logger.Debug(fmt.Sprintf("Restoring state before fix for %s@%s\n", p.Name, p.Version))
 			oErr := history.GotoRevision(before)
 			if oErr != nil {
 				return microerror.Mask(errors.Join(err, oErr))
+			}
+
+			// Remove item from vulnerable packages for now
+			// This avoid looping forever on the same element and the item will be re-introduced in the next successful run
+			arrayLenght := len(vulnerablePackages)
+			if arrayLenght > 1 {
+				vulnerablePackages[0] = vulnerablePackages[arrayLenght-1]
+				vulnerablePackages = vulnerablePackages[:arrayLenght-1]
+				continue
+			} else {
+				// There is nothing else in the package list, don't re-iterate
+				break
 			}
 		}
 
