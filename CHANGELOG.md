@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Reduce ignores expiration time to 30 days.
+- Remove ignores when expired.
+
 ## [0.3.1] - 2024-01-19
 
 ### Changed
