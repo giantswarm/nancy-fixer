@@ -9,7 +9,7 @@ import (
 	"github.com/giantswarm/microerror"
 )
 
-const DefaultIgnorePeriodDays = 90
+const DefaultIgnorePeriodDays = 30
 
 func IgnoreVulnerabilities(
 	vulnerabilities []Vulnerability,
