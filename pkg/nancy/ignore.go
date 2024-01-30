@@ -45,29 +45,46 @@ func updateNancyIgnoreLines(
 	vulnerabilities []Vulnerability,
 	p VulnerablePackage,
 ) []string {
+
+	// Map the vulnerabilities for easier access
 	unhandledVulnerabilities := map[string]Vulnerability{}
 	for _, v := range vulnerabilities {
 		unhandledVulnerabilities[v.ID] = v
 	}
 
-	for i, line := range lines {
-		newlyHandledVulnerabilities := []string{}
-		for _, v := range unhandledVulnerabilities {
-			if strings.Contains(line, v.ID) {
-				newLine := generateNancyIgnoreEntry(v, p)
-				lines[i] = newLine
-				newlyHandledVulnerabilities = append(newlyHandledVulnerabilities, v.ID)
+	newLines := []string{}
+	for _, line := range lines {
+
+		// Split line so we can get the CVE ID and date (CVE-2022-29153 until=2023-06-01)
+		entry := strings.Split(line, " ")
+		// Pick CVE ID
+		cve := entry[0]
+		// Pick right side of the until section
+		date := strings.Split(entry[1], "=")[1]
+
+		// If vulnerability already exists
+		if v, found := unhandledVulnerabilities[cve]; found {
+			// Renew ignore entry
+			newLine := generateNancyIgnoreEntry(v, p)
+			newLines = append(newLines, newLine)
+
+			// Delete entry from map
+			delete(unhandledVulnerabilities, v.ID)
+		} else {
+			// If its not expired, keep it
+			if !isExpired(date) {
+				newLines = append(newLines, line)
 			}
 		}
-		for _, v := range newlyHandledVulnerabilities {
-			delete(unhandledVulnerabilities, v)
-		}
 	}
+
+	// Create entries for missing vulnerabilities
 	for _, v := range unhandledVulnerabilities {
 		newLine := generateNancyIgnoreEntry(v, p)
-		lines = append(lines, newLine)
+		newLines = append(newLines, newLine)
 	}
-	return lines
+
+	return newLines
 }
 
 // CVE-2022-29153 until=2023-06-01
@@ -81,4 +98,19 @@ func generateNancyIgnoreEntry(v Vulnerability, p VulnerablePackage) string {
 		string(p.Name),
 		string(p.Version),
 	)
+}
+
+func isExpired(date string) bool {
+	today := time.Now()
+	expiryDate, error := time.Parse("2006-01-02", date)
+
+	if error != nil {
+		return true
+	}
+
+	if today.After(expiryDate) {
+		return true
+	} else {
+		return false
+	}
 }
