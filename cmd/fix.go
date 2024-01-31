@@ -32,6 +32,9 @@ var fixCmd = &cobra.Command{
 		}
 
 		logger, err := createLoggerFromFlags(cmd, writer)
+		if err != nil {
+			return microerror.Mask(err)
+		}
 
 		err = fix.Fix(logger, dir)
 		if err != nil {
@@ -54,6 +57,9 @@ func createLoggerFromFlags(cmd *cobra.Command, writer io.Writer) (*pterm.Logger,
 	}
 
 	logShowTime, err := cmd.Flags().GetBool("log-show-time")
+	if err != nil {
+		return nil, microerror.Mask(err)
+	}
 
 	config := logging.LoggerConfig{
 		Level:     logLevel,
