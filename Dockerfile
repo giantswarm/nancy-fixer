@@ -9,7 +9,7 @@ LABEL "repository"="https://github.com/giantswarm/nancy-fixer"
 ADD https://github.com/sonatype-nexus-community/nancy/releases/download/v1.0.45/nancy-v1.0.45-linux-amd64 /usr/local/bin/nancy
 RUN chmod a+x /usr/local/bin/nancy
 
-RUN go install github.com/giantswarm/nancy-fixer@v0.4.0
+ADD nancy-fixer /usr/local/bin/nancy-fixer
 
 ADD entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
