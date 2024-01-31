@@ -3,14 +3,15 @@ package cmd
 import (
 	"os"
 
-	"github.com/giantswarm/nancy-fixer/pkg/project"
 	"github.com/spf13/cobra"
+
+	"github.com/giantswarm/nancy-fixer/pkg/project"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "nancy-fixer",
-	Short: "Nancy fixer is a tool to fix nancy vulnerabilities",
+	Use:     "nancy-fixer",
+	Short:   "Nancy fixer is a tool to fix nancy vulnerabilities",
 	Version: project.Version(),
 }
 
