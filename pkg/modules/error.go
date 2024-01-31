@@ -41,4 +41,3 @@ var goModTidyError = &microerror.Error{
 func IsGoModTidyError(err error) bool {
 	return microerror.Cause(err) == goModTidyError
 }
-
