@@ -6,10 +6,9 @@ orbs:
 workflows:
   test:
     jobs:
-      
       - architect/go-build:
           name: go-build
-          binary: kyverno-policy-operator
+          binary: nancy-fixer
           resource_class: large
           filters:
             tags:
