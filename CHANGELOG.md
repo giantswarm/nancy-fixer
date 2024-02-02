@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Fix array out of bounds issue on ignore files.
+
 ## [0.4.1] - 2024-02-02
 
 ### Changed
