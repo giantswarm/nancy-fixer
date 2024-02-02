@@ -55,13 +55,17 @@ func updateNancyIgnoreLines(
 	newLines := []string{}
 	for _, line := range lines {
 
-		if !strings.Contains(line, "until") {
+		if !strings.Contains(line, "until=") {
 			// Remove lines that don't have an expiration date
 			continue
 		}
-
 		// Split line so we can get the CVE ID and date (CVE-2022-29153 until=2023-06-01)
 		entry := strings.Split(line, " ")
+		if len(entry) != 2 {
+			// Ignore longer entries
+			continue
+		}
+
 		// Pick CVE ID
 		cve := entry[0]
 		// Pick right side of the until section
