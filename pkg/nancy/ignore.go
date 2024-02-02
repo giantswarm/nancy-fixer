@@ -32,7 +32,7 @@ func IgnoreVulnerabilities(
 	lines = append(lines, "")
 
 	newFile := strings.Join(lines, "\n")
-	err = os.WriteFile(nancyIgnorePath, []byte(newFile), 0600)
+	err = os.WriteFile(nancyIgnorePath, []byte(newFile), 0644) //nolint:all
 	if err != nil {
 		return microerror.Mask(err)
 	}
@@ -54,6 +54,11 @@ func updateNancyIgnoreLines(
 
 	newLines := []string{}
 	for _, line := range lines {
+
+		if !strings.Contains(line, "until") {
+			// Remove lines that don't have an expiration date
+			continue
+		}
 
 		// Split line so we can get the CVE ID and date (CVE-2022-29153 until=2023-06-01)
 		entry := strings.Split(line, " ")
