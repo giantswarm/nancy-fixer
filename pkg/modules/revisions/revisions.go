@@ -76,12 +76,12 @@ func (h *History) PopRevision() {
 func (h *History) ApplyRevision() error {
 	rev := h.Revisions[len(h.Revisions)-1]
 
-	err := os.WriteFile(path.Join(h.cwd, "go.mod"), []byte(rev.GoMod), 0600)
+	err := os.WriteFile(path.Join(h.cwd, "go.mod"), []byte(rev.GoMod), 0644) //nolint:all
 	if err != nil {
 		return microerror.Mask(err)
 	}
 
-	err = os.WriteFile(path.Join(h.cwd, "go.sum"), []byte(rev.GoSum), 0600)
+	err = os.WriteFile(path.Join(h.cwd, "go.sum"), []byte(rev.GoSum), 0644) //nolint:all
 	if err != nil {
 		return microerror.Mask(err)
 	}
