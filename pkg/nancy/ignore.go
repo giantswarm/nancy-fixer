@@ -61,8 +61,8 @@ func updateNancyIgnoreLines(
 		}
 		// Split line so we can get the CVE ID and date (CVE-2022-29153 until=2023-06-01)
 		entry := strings.Split(line, " ")
-		if len(entry) != 2 {
-			// Ignore longer entries
+		if !strings.Contains(entry[1], "until=") {
+			// Ignore if the second element is not the date
 			continue
 		}
 
