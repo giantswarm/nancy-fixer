@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Fix ignores being deleted.
+
 ## [0.4.2] - 2024-02-02
 
 ### Changed
