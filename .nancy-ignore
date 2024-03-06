@@ -1,3 +1,3 @@
-CVE-2022-41723 until=2024-03-06 # golang.org/x/net@v0.6.0
-CVE-2023-39325 until=2024-03-06 # golang.org/x/net@v0.6.0
-CVE-2023-3978 until=2024-03-06 # golang.org/x/net@v0.6.0
+CVE-2022-41723 until=2024-04-05 # golang.org/x/net@v0.6.0
+CVE-2023-39325 until=2024-04-05 # golang.org/x/net@v0.6.0
+CVE-2023-3978 until=2024-04-05 # golang.org/x/net@v0.6.0
