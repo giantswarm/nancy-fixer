@@ -113,7 +113,7 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 	r, w := io.Pipe()
 	goCmd := exec.Cmd{
 		Path:   goExecutable,
-		Args:   []string{goExecutable, "list", "-json", "-m", "all"},
+		Args:   []string{goExecutable, "list", "-json", "-deps", "./..."},
 		Dir:    dir,
 		Stdout: w,
 	}
