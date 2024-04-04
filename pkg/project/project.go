@@ -5,7 +5,7 @@ var (
 	gitSHA      = "n/a"
 	name        = "nancy-fixer"
 	source      = "https://github.com/giantswarm/nancy-fixer"
-	version     = "0.4.4"
+	version     = "0.4.5-dev"
 )
 
 func Description() string {
