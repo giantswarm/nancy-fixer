@@ -6,6 +6,7 @@ nancy --version
 nancy-fixer --version
 
 echo "Running nancy-fixer"
-echo $(pwd)
+pwd
+ls
 
-nancy-fixer fix
+nancy-fixer fix --log-level "debug"
