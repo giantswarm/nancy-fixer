@@ -125,7 +125,6 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 			nancyExecutable,
 			"sleuth",
 			"--skip-update-check",
-			"--quiet",
 			"--exclude-vulnerability-file",
 			"./.nancy-ignore",
 			"--additional-exclude-vulnerability-files",
