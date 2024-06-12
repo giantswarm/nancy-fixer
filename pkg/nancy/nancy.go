@@ -164,6 +164,8 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
+	fmt.Sprintf("Nancy output: %v", nancyOutput)
+
 	return nancyOutput, nil
 }
 
