@@ -6,7 +6,7 @@ LABEL "com.github.actions.icon"="shield"
 LABEL "com.github.actions.color"="orange"
 LABEL "repository"="https://github.com/giantswarm/nancy-fixer"
 
-ADD https://github.com/sonatype-nexus-community/nancy/releases/download/v1.0.45/nancy-v1.0.45-linux-amd64 /usr/local/bin/nancy
+ADD https://github.com/sonatype-nexus-community/nancy/releases/download/v1.0.46/nancy-v1.0.46-linux-amd64 /usr/local/bin/nancy
 RUN chmod a+x /usr/local/bin/nancy
 
 ADD nancy-fixer /usr/local/bin/nancy-fixer

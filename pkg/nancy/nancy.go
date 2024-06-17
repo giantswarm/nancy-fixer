@@ -125,7 +125,6 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 			nancyExecutable,
 			"sleuth",
 			"--skip-update-check",
-			"--quiet",
 			"--exclude-vulnerability-file",
 			"./.nancy-ignore",
 			"--additional-exclude-vulnerability-files",
@@ -164,6 +163,8 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
+
+	fmt.Sprintf("Nancy output: %v", nancyOutput)
 
 	return nancyOutput, nil
 }
