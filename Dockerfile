@@ -1,4 +1,4 @@
-FROM golang:1.22
+FROM golang:1.23
 
 LABEL "com.github.actions.name"="nancy-fixer-action"
 LABEL "com.github.actions.description"="runs nancy-fixer to patch vulnerabilities found by Nancy"
