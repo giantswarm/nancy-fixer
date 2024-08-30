@@ -4,7 +4,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/giantswarm/microerror"
+	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
@@ -25,7 +25,7 @@ var fixCmd = &cobra.Command{
 		if logFilePath != "" {
 			logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				return microerror.Mask(err)
+				return errors.Cause(err)
 			}
 			defer logFile.Close()
 			writer = logFile
@@ -33,12 +33,12 @@ var fixCmd = &cobra.Command{
 
 		logger, err := createLoggerFromFlags(cmd, writer)
 		if err != nil {
-			return microerror.Mask(err)
+			return errors.Cause(err)
 		}
 
 		err = fix.Fix(logger, dir)
 		if err != nil {
-			return microerror.Mask(err)
+			return errors.Cause(err)
 		}
 
 		return nil
@@ -48,17 +48,17 @@ var fixCmd = &cobra.Command{
 func createLoggerFromFlags(cmd *cobra.Command, writer io.Writer) (*pterm.Logger, error) {
 	logLevel, err := logging.LogLevelFromString(cmd.Flag("log-level").Value.String())
 	if err != nil {
-		return nil, microerror.Mask(err)
+		return nil, errors.Cause(err)
 	}
 
 	logFormatter, err := logging.LogFormatterFromString(cmd.Flag("log-formatter").Value.String())
 	if err != nil {
-		return nil, microerror.Mask(err)
+		return nil, errors.Cause(err)
 	}
 
 	logShowTime, err := cmd.Flags().GetBool("log-show-time")
 	if err != nil {
-		return nil, microerror.Mask(err)
+		return nil, errors.Cause(err)
 	}
 
 	config := logging.LoggerConfig{
