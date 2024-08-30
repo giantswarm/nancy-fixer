@@ -1,11 +1,12 @@
 package fix
 
 import (
-	"errors"
 	"fmt"
 	"path"
 
-	"github.com/giantswarm/microerror"
+	errors_ "errors"
+
+	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 
 	"github.com/giantswarm/nancy-fixer/pkg/logging"
@@ -21,14 +22,14 @@ func Fix(logger *pterm.Logger, cwd string) error {
 
 	vulnerablePackages, err := nancy.GetVulnerablePackages(cwd)
 	if err != nil {
-		return microerror.Mask(err)
+		return errors.Cause(err)
 	}
 
 	logger.Info(fmt.Sprintf("Found %d vulnerable packages", len(vulnerablePackages)))
 
 	history, err := revisions.BuildHistory(cwd)
 	if err != nil {
-		return microerror.Mask(err)
+		return errors.Cause(err)
 	}
 
 	fixReasonSummary := makeFixReasonsummary()
@@ -37,7 +38,7 @@ func Fix(logger *pterm.Logger, cwd string) error {
 		p := vulnerablePackages[0]
 		before, err := history.PushRevision(fmt.Sprintf("Fix %s", p.Name))
 		if err != nil {
-			return microerror.Mask(err)
+			return errors.Cause(err)
 		}
 
 		logging.LogSection(logger, fmt.Sprintf("Fixing %s@%s", p.Name, p.Version))
@@ -60,7 +61,7 @@ func Fix(logger *pterm.Logger, cwd string) error {
 			logger.Debug(fmt.Sprintf("Restoring state before fix for %s@%s\n", p.Name, p.Version))
 			oErr := history.GotoRevision(before)
 			if oErr != nil {
-				return microerror.Mask(errors.Join(err, oErr))
+				return errors.Cause(errors_.Join(err, oErr))
 			}
 
 			// Remove item from vulnerable packages for now
@@ -81,7 +82,7 @@ func Fix(logger *pterm.Logger, cwd string) error {
 		vulnerablePackages, err = nancy.GetVulnerablePackages(cwd)
 
 		if err != nil {
-			return microerror.Mask(err)
+			return errors.Cause(err)
 		}
 
 		logger.Debug(fmt.Sprintf("%d vulnerable packages remaining", len(vulnerablePackages)))
@@ -104,12 +105,12 @@ func FixVulnerablePackage(
 
 	moduleName, err := modules.GetModuleName(cwd)
 	if err != nil {
-		return fixResult, microerror.Mask(err)
+		return fixResult, errors.Cause(err)
 	}
 
 	newestVersion, updateAvailable, err := checkUpdateAvailable(p.ToPackage())
 	if err != nil {
-		return fixResult, microerror.Mask(err)
+		return fixResult, errors.Cause(err)
 	}
 
 	if updateAvailable {
@@ -122,7 +123,7 @@ func FixVulnerablePackage(
 	if updateAvailable {
 		beforeUpdate, err := history.PushRevision(fmt.Sprintf("Updating %s", p.Name))
 		if err != nil {
-			return fixResult, microerror.Mask(err)
+			return fixResult, errors.Cause(err)
 		}
 
 		updateResult, err := performUpdateSteps(logger, cwd, p, moduleName, newestVersion, history)
@@ -135,11 +136,11 @@ func FixVulnerablePackage(
 		// update failed - rollback changes
 		oErr := history.GotoRevision(beforeUpdate)
 		if oErr != nil {
-			return fixResult, microerror.Mask(errors.Join(err, oErr))
+			return fixResult, errors.Cause(errors_.Join(err, oErr))
 		}
 
 		if err != nil {
-			return fixResult, microerror.Mask(err)
+			return fixResult, errors.Cause(err)
 		}
 
 	}
@@ -153,7 +154,7 @@ func FixVulnerablePackage(
 		path.Join(cwd, DefaultNancyIgnorePath),
 	)
 	if err != nil {
-		return fixResult, microerror.Mask(err)
+		return fixResult, errors.Cause(err)
 	}
 	return fixResult, nil
 }
@@ -163,7 +164,7 @@ func checkUpdateAvailable(
 ) (newestVersion modules.SemanticVersion, updateAvailable bool, err error) {
 	newestVersion, err = modules.GetNewestVersion(p.Name)
 	if err != nil {
-		return newestVersion, false, microerror.Mask(err)
+		return newestVersion, false, errors.Cause(err)
 	}
 	updateAvailable = p.Version.LessThan(newestVersion)
 	return newestVersion, updateAvailable, nil
@@ -181,14 +182,14 @@ func performUpdateSteps(
 
 	updateResult := makeEmptyUpdateResult()
 	if err != nil {
-		return updateResult, microerror.Mask(err)
+		return updateResult, errors.Cause(err)
 	}
 
 	parentResult, err := getAndUpdateParents(logger, cwd, p, moduleName)
 	updateResult.ParentResult = parentResult
 
 	if err != nil {
-		return updateResult, microerror.Mask(err)
+		return updateResult, errors.Cause(err)
 	}
 
 	if parentResult == ParentSuccess {
@@ -199,14 +200,14 @@ func performUpdateSteps(
 	// rollback changes before proceeding with update via replace
 	err = history.GotoRevision(before)
 	if err != nil {
-		return updateResult, microerror.Mask(err)
+		return updateResult, errors.Cause(err)
 	}
 
 	replaceResult, err := updateWithReplaceAndCheck(cwd, p, newestVersion)
 	updateResult.ReplaceResult = replaceResult
 
 	if err != nil {
-		return updateResult, microerror.Mask(err)
+		return updateResult, errors.Cause(err)
 	}
 
 	switch replaceResult {
@@ -229,7 +230,7 @@ func getAndUpdateParents(
 ) (ParentUpdateResult, error) {
 	dependencyLinks, err := modules.BuildDependencyLinks(cwd)
 	if err != nil {
-		return ParentError, microerror.Mask(err)
+		return ParentError, errors.Cause(err)
 	}
 	reverseDependencyMap := modules.BuildReverseDependencyMap(dependencyLinks)
 
@@ -250,12 +251,12 @@ func getAndUpdateParents(
 	if result == ParentBrokeBuild ||
 		result == ParentError ||
 		result == ParentUpdateNoUpdateAvailable {
-		return result, microerror.Mask(err)
+		return result, errors.Cause(err)
 	}
 
 	isFixed, err := checkVulnerabilityFixed(cwd, p.Name)
 	if err != nil {
-		return ParentError, microerror.Mask(err)
+		return ParentError, errors.Cause(err)
 	}
 	if !isFixed {
 		logger.Info("Updating parents did not fix vulnerability")
@@ -276,7 +277,7 @@ func updateParents(
 
 		switch result {
 		case ParentError:
-			return ParentError, microerror.Mask(err)
+			return ParentError, errors.Cause(err)
 		case ParentBrokeBuild:
 			return ParentBrokeBuild, nil
 		case ParentUpdateNoUpdateAvailable:
@@ -302,7 +303,7 @@ func updateParentAndCheck(
 	newestVersion, updateAvailable, err := checkUpdateAvailable(parent)
 
 	if err != nil {
-		return ParentError, microerror.Mask(err)
+		return ParentError, errors.Cause(err)
 	}
 
 	if !updateAvailable {
@@ -322,7 +323,7 @@ func updateParentAndCheck(
 		// sometimes the build already breaks during an update
 		// we assume that this is the case, because I don't know to differentiate atm
 		return ParentBrokeBuild, nil
-		// return ParentError, microerror.Mask(err)
+		// return ParentError, errors.Cause(err)
 	}
 
 	if !modules.VetSuceeds(cwd) {
@@ -485,12 +486,12 @@ func updateWithReplaceAndCheck(
 		if modules.IsGoModTidyError(err) {
 			return ReplaceBrokeBuild, nil
 		}
-		return ReplaceError, microerror.Mask(err)
+		return ReplaceError, errors.Cause(err)
 	}
 
 	result, err := performSanityCheck(cwd, p.ToPackage())
 	if err != nil {
-		return ReplaceError, microerror.Mask(err)
+		return ReplaceError, errors.Cause(err)
 	}
 	return result, nil
 }
@@ -501,7 +502,7 @@ func performSanityCheck(
 ) (result ReplaceResult, err error) {
 	isFixed, err := checkVulnerabilityFixed(cwd, p.Name)
 	if err != nil {
-		return ReplaceError, microerror.Mask(err)
+		return ReplaceError, errors.Cause(err)
 	}
 	if !isFixed {
 		return ReplaceDidNotFixVulnerability, nil
@@ -519,7 +520,7 @@ func checkVulnerabilityFixed(
 ) (bool, error) {
 	newVulnerablePackages, err := nancy.GetVulnerablePackages(cwd)
 	if err != nil {
-		return false, microerror.Mask(err)
+		return false, errors.Cause(err)
 	}
 	if nancy.VulnerablePackagesContain(newVulnerablePackages, name) {
 		return false, nil

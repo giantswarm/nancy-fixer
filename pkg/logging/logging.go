@@ -3,7 +3,7 @@ package logging
 import (
 	"io"
 
-	"github.com/giantswarm/microerror"
+	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 )
 
@@ -33,7 +33,7 @@ func LogLevelFromString(level string) (pterm.LogLevel, error) {
 	case "print":
 		return pterm.LogLevelPrint, nil
 	default:
-		return pterm.LogLevelInfo, microerror.Mask(invalidLogLevelError)
+		return pterm.LogLevelInfo, errors.Cause(errInvalidLogLevel)
 	}
 }
 
@@ -44,7 +44,7 @@ func LogFormatterFromString(formatter string) (pterm.LogFormatter, error) {
 	case "json":
 		return pterm.LogFormatterJSON, nil
 	}
-	return pterm.LogFormatterColorful, microerror.Mask(invalidLogFormatterError)
+	return pterm.LogFormatterColorful, errors.Cause(errInvalidLogFormatterError)
 }
 
 func MakeLogger(c LoggerConfig) *pterm.Logger {

@@ -116,7 +116,7 @@ func UpdatePackage(cwd string, name PackageName, version SemanticVersion) error 
 		fmt.Sprintf("%s@%s", name, version),
 	)
 	// go get writes to stderr
-	if err != nil && !gocli.IsStderrNotEmpty(err) {
+	if err != nil {
 		return microerror.Mask(err)
 	}
 

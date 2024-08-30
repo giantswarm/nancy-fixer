@@ -2,10 +2,9 @@ package gocli
 
 import (
 	"bytes"
-	"fmt"
 	"os/exec"
 
-	"github.com/giantswarm/microerror"
+	"github.com/pkg/errors"
 )
 
 type GoConfig struct {
@@ -18,13 +17,13 @@ func CallGoNoBuffer(config GoConfig, args ...string) (string, error) {
 	err := CallGo(config, &stdout, &stderr, args...)
 
 	if err != nil {
-		return "", microerror.Mask(err)
+		return "", errors.Cause(err)
 	}
 
 	errOutput := stderr.String()
 
 	if errOutput != "" {
-		return stdout.String(), microerror.Maskf(stderrNotEmpty, errOutput)
+		return stdout.String(), errors.New(errOutput)
 	}
 	return stdout.String(), nil
 
@@ -38,7 +37,7 @@ func CallGo(
 ) (err error) {
 	goExecutable, err := exec.LookPath("go")
 	if err != nil {
-		return microerror.Mask(err)
+		return errors.Cause(err)
 	}
 
 	cmd := exec.Cmd{
@@ -55,7 +54,7 @@ func CallGo(
 	if err != nil {
 		outErr := stderr.String()
 
-		return microerror.Mask(fmt.Errorf(outErr))
+		return errors.Wrap(err, outErr)
 	}
 	return nil
 }

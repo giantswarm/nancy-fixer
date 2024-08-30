@@ -1,19 +1,7 @@
 package logging
 
-import "github.com/giantswarm/microerror"
+import "errors"
 
-var invalidLogLevelError = &microerror.Error{
-	Kind: "invalidLogLevelError",
-}
+var errInvalidLogLevel = errors.New("invalidLogLevelError")
 
-func IsInvalidLogLevelError(err error) bool {
-	return microerror.Cause(err) == invalidLogLevelError
-}
-
-var invalidLogFormatterError = &microerror.Error{
-	Kind: "invalidLogFormatterError",
-}
-
-func IsInvalidLogFormatterError(err error) bool {
-	return microerror.Cause(err) == invalidLogFormatterError
-}
+var errInvalidLogFormatterError = errors.New("invalidLogFormatterError")
