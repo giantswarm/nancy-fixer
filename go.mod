@@ -2,7 +2,7 @@ module github.com/giantswarm/nancy-fixer
 
 go 1.22
 
-toolchain go1.23.2
+toolchain go1.23.3
 
 require (
 	github.com/giantswarm/microerror v0.4.1
