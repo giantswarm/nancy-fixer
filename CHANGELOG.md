@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2025-05-14
 
+### Changed
+
+- Updated nancy binary.
+- Fixed issue where the image would fail when run inside a Github Action container.
+
 ## [0.4.4] - 2024-04-03
 
 - Fix dependency gathering for `nancy sleuth` to unly use return Go modules used in the current project (`go list -json -deps ./...`). Before, all Go modules in the environment were used (`go list -json -deps all`).
