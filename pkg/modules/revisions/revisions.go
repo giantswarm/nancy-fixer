@@ -3,6 +3,7 @@ package revisions
 import (
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/giantswarm/microerror"
 )
@@ -54,7 +55,8 @@ func (h *History) PushRevision(action string) (int, error) {
 }
 
 func readGoMod(cwd string) (string, error) {
-	goMod, err := os.ReadFile(path.Join(cwd, "go.mod"))
+	sanitizedPath := filepath.Clean(path.Join(cwd, "go.mod"))
+	goMod, err := os.ReadFile(sanitizedPath)
 	if err != nil {
 		return "", microerror.Mask(err)
 	}
@@ -62,7 +64,8 @@ func readGoMod(cwd string) (string, error) {
 }
 
 func readGoSum(cwd string) (string, error) {
-	goSum, err := os.ReadFile(path.Join(cwd, "go.sum"))
+	sanitizedPath := filepath.Clean(path.Join(cwd, "go.sum"))
+	goSum, err := os.ReadFile(sanitizedPath)
 	if err != nil {
 		return "", microerror.Mask(err)
 	}
@@ -76,12 +79,12 @@ func (h *History) PopRevision() {
 func (h *History) ApplyRevision() error {
 	rev := h.Revisions[len(h.Revisions)-1]
 
-	err := os.WriteFile(path.Join(h.cwd, "go.mod"), []byte(rev.GoMod), 0644) //nolint:all
+	err := os.WriteFile(path.Join(h.cwd, "go.mod"), []byte(rev.GoMod), 0600)
 	if err != nil {
 		return microerror.Mask(err)
 	}
 
-	err = os.WriteFile(path.Join(h.cwd, "go.sum"), []byte(rev.GoSum), 0644) //nolint:all
+	err = os.WriteFile(path.Join(h.cwd, "go.sum"), []byte(rev.GoSum), 0600)
 	if err != nil {
 		return microerror.Mask(err)
 	}
