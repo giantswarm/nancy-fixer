@@ -3,6 +3,7 @@ package nancy
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,7 +17,7 @@ func IgnoreVulnerabilities(
 	p VulnerablePackage,
 	nancyIgnorePath string,
 ) error {
-	file, err := os.ReadFile(nancyIgnorePath)
+	file, err := os.ReadFile(filepath.Clean(nancyIgnorePath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			file = []byte{}
@@ -32,7 +33,7 @@ func IgnoreVulnerabilities(
 	lines = append(lines, "")
 
 	newFile := strings.Join(lines, "\n")
-	err = os.WriteFile(nancyIgnorePath, []byte(newFile), 0644) //nolint:all
+	err = os.WriteFile(nancyIgnorePath, []byte(newFile), 0600)
 	if err != nil {
 		return microerror.Mask(err)
 	}
