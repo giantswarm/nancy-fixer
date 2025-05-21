@@ -2,6 +2,7 @@ package nancy
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os/exec"
@@ -168,6 +169,50 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 	}
 
 	return nancyOutput, nil
+}
+
+func parseNancyOutput(output bytes.Buffer) (NancySleuthOutputJSON, error) {
+	jsonParsed := NancySleuthOutputJSON{}
+
+	err := json.Unmarshal(output.Bytes(), &jsonParsed)
+	if err != nil {
+		return NancySleuthOutputJSON{}, microerror.Mask(err)
+	}
+	return jsonParsed, nil
+}
+
+func extractVulnerablePackages(outputJSON NancySleuthOutputJSON) ([]VulnerablePackage, error) {
+	vulnerablePackages := []VulnerablePackage{}
+
+	for _, vulnerablePackageJSON := range outputJSON.Vulnerable {
+		vulnerabilities := []Vulnerability{}
+
+		for _, vulnerabilityJSON := range vulnerablePackageJSON.Vulnerabilities {
+			vulnerability := Vulnerability{
+				ID:          vulnerabilityJSON.ID,
+				Title:       vulnerabilityJSON.Title,
+				Description: vulnerabilityJSON.Description,
+				CvssScore:   vulnerabilityJSON.CvssScore,
+			}
+			vulnerabilities = append(vulnerabilities, vulnerability)
+		}
+
+		name, version := UnpackCoordinates(vulnerablePackageJSON.Coordinates)
+		semVer, err := modules.BuildSemVer(version)
+		if err != nil {
+			return nil, microerror.Mask(err)
+		}
+
+		vulnerablePackage := VulnerablePackage{
+			Name:            modules.PackageName(name),
+			Version:         semVer,
+			Vulnerabilities: vulnerabilities,
+		}
+		vulnerablePackages = append(vulnerablePackages, vulnerablePackage)
+
+	}
+	return vulnerablePackages, nil
+
 }
 
 // coordinates example: pkg:golang/github.com/hashicorp/consul/api@v1.20.0
