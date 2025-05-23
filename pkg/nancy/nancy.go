@@ -100,7 +100,6 @@ func GetVulnerablePackages(dir string) ([]VulnerablePackage, error) {
 }
 
 func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
-
 	nancyExecutable, err := exec.LookPath("nancy")
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
@@ -150,7 +149,11 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
-	w.Close()
+
+	if err := w.Close(); err != nil {
+		return NancySleuthOutputJSON{}, microerror.Mask(err)
+	}
+
 	err = nancyCmd.Wait()
 	if err != nil {
 		if _, ok := err.(*exec.ExitError); ok {

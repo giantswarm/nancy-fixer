@@ -23,11 +23,15 @@ var fixCmd = &cobra.Command{
 		logFilePath := cmd.Flag("log-file").Value.String()
 
 		if logFilePath != "" {
-			logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0640)
 			if err != nil {
 				return errors.Cause(err)
 			}
-			defer logFile.Close()
+			defer func() {
+				if err := logFile.Close(); err != nil {
+					pterm.Error.Println("Failed to close log file:", err)
+				}
+			}()
 			writer = logFile
 		}
 
@@ -50,7 +54,6 @@ func createLoggerFromFlags(cmd *cobra.Command, writer io.Writer) (*pterm.Logger,
 	if err != nil {
 		return nil, errors.Cause(err)
 	}
-
 	logFormatter, err := logging.LogFormatterFromString(cmd.Flag("log-formatter").Value.String())
 	if err != nil {
 		return nil, errors.Cause(err)
