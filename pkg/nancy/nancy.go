@@ -110,15 +110,20 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
+	var goStdErr bytes.Buffer
+
 	r, w := io.Pipe()
 	goCmd := exec.Cmd{
 		Path:   goExecutable,
 		Args:   []string{goExecutable, "list", "-json", "-deps", "./..."},
 		Dir:    dir,
 		Stdout: w,
+		Stderr: &goStdErr,
 	}
 
 	var out bytes.Buffer
+	var nancyStdErr bytes.Buffer
+
 	nancyCmd := exec.Cmd{
 		Path: nancyExecutable,
 		Args: []string{
@@ -134,6 +139,7 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 		Dir:    dir,
 		Stdin:  r,
 		Stdout: &out,
+		Stderr: &nancyStdErr,
 	}
 
 	logger.Debug("Running go", logger.Args("args", goCmd.Args))
@@ -145,12 +151,12 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 	logger.Debug("Running nancy", logger.Args("args", nancyCmd.Args))
 	err = nancyCmd.Start()
 	if err != nil {
-		logger.Debug("Failed to start nancy command", logger.Args("error", err))
+		logger.Debug("Failed to start nancy command", logger.Args("error", err, "stderr", nancyStdErr.String()))
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 	err = goCmd.Wait()
 	if err != nil {
-		logger.Debug("Failed waiting for go command", logger.Args("error", err))
+		logger.Debug("Failed waiting for go command", logger.Args("error", err, "stderr", goStdErr.String()))
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
@@ -161,7 +167,7 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 
 	err = nancyCmd.Wait()
 	if err != nil {
-		logger.Debug("Failed waiting for nancy command", logger.Args("error", err))
+		logger.Debug("Failed waiting for nancy command", logger.Args("error", err, "stderr", nancyStdErr.String()))
 		if castedError, ok := err.(*exec.ExitError); ok {
 			logger.Debug("Error as *exec.ExitError", logger.Args("error", castedError))
 			// Nancy returns inconistent and unexpected exit codes.
