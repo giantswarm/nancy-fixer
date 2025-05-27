@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/giantswarm/microerror"
+	"github.com/pterm/pterm"
 
 	"github.com/giantswarm/nancy-fixer/pkg/modules"
 )
@@ -83,15 +84,15 @@ func VulnerablePackagesContain(packages []VulnerablePackage, name modules.Packag
 	return false
 }
 
-func GetVulnerablePackages(dir string) ([]VulnerablePackage, error) {
-
-	nancyOutput, err := RunSleuth(dir)
+func GetVulnerablePackages(logger *pterm.Logger, dir string) ([]VulnerablePackage, error) {
+	logger.Debug("Running nancy sleuth...")
+	nancyOutput, err := RunSleuth(logger, dir)
 	if err != nil {
 		return nil, microerror.Mask(err)
 	}
 
+	logger.Debug("Extracting vulnerable packages")
 	vulnerablePackages, err := extractVulnerablePackages(nancyOutput)
-
 	if err != nil {
 		return nil, microerror.Mask(err)
 	}
@@ -99,7 +100,7 @@ func GetVulnerablePackages(dir string) ([]VulnerablePackage, error) {
 	return vulnerablePackages, nil
 }
 
-func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
+func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) {
 	nancyExecutable, err := exec.LookPath("nancy")
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
@@ -137,10 +138,13 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 		Stdout: &out,
 	}
 
+	logger.Debug("Running go", logger.Args("executable", goExecutable, "args", nancyCmd.Args))
 	err = goCmd.Start()
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
+
+	logger.Debug("Running nancy", logger.Args("executable", nancyExecutable, "args", nancyCmd.Args))
 	err = nancyCmd.Start()
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
@@ -163,6 +167,7 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 		}
 	}
 
+	logger.Debug("Parsing nancy output")
 	nancyOutput, err := parseNancyOutput(out)
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
