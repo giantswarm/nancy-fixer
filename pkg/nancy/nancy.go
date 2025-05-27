@@ -126,41 +126,44 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 			"sleuth",
 			"--skip-update-check",
 			"--quiet",
-			"--exclude-vulnerability-file",
-			"./.nancy-ignore",
-			"--additional-exclude-vulnerability-files",
-			"./.nancy-ignore.generated",
-			"-o",
-			"json-pretty",
+			"--no-color",
+			"--exclude-vulnerability-file=./.nancy-ignore",
+			"--additional-exclude-vulnerability-files=./.nancy-ignore.generated",
+			"--output=json-pretty",
 		},
 		Dir:    dir,
 		Stdin:  r,
 		Stdout: &out,
 	}
 
-	logger.Debug("Running go", logger.Args("executable", goExecutable, "args", nancyCmd.Args))
+	logger.Debug("Running go", logger.Args("args", goCmd.Args))
 	err = goCmd.Start()
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
-	logger.Debug("Running nancy", logger.Args("executable", nancyExecutable, "args", nancyCmd.Args))
+	logger.Debug("Running nancy", logger.Args("args", nancyCmd.Args))
 	err = nancyCmd.Start()
 	if err != nil {
+		logger.Debug("Failed to start nancy command", logger.Args("error", err))
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 	err = goCmd.Wait()
 	if err != nil {
+		logger.Debug("Failed waiting for go command", logger.Args("error", err))
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
 	if err := w.Close(); err != nil {
+		logger.Debug("Failed closing PipeWriter", logger.Args("error", err))
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
 	err = nancyCmd.Wait()
 	if err != nil {
-		if _, ok := err.(*exec.ExitError); ok {
+		logger.Debug("Failed waiting for nancy command", logger.Args("error", err))
+		if castedError, ok := err.(*exec.ExitError); ok {
+			logger.Debug("Error as *exec.ExitError", logger.Args("error", castedError))
 			// Nancy returns inconistent and unexpected exit codes.
 		} else {
 			return NancySleuthOutputJSON{}, microerror.Mask(err)
@@ -170,6 +173,8 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 	logger.Debug("Parsing nancy output")
 	nancyOutput, err := parseNancyOutput(out)
 	if err != nil {
+		logger.Debug("Failed parsing nancy output", logger.Args("error", err))
+		// If the output is not valid JSON, we cannot proceed.
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
