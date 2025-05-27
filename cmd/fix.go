@@ -39,6 +39,7 @@ var fixCmd = &cobra.Command{
 		if err != nil {
 			return errors.Cause(err)
 		}
+		logger.Debug("Logging verbosely", logger.Args("level", logger.Level))
 
 		err = fix.Fix(logger, dir)
 		if err != nil {
