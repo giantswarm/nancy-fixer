@@ -16,4 +16,6 @@ RUN chmod +x /entrypoint.sh
 
 ENV GOFLAGS=-buildvcs=false
 
+ENV LOG_LEVEL=info
+
 ENTRYPOINT ["/entrypoint.sh"]
