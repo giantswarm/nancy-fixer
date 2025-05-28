@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/giantswarm/microerror"
+	"github.com/pterm/pterm"
 
 	"github.com/giantswarm/nancy-fixer/pkg/modules"
 )
@@ -83,15 +84,15 @@ func VulnerablePackagesContain(packages []VulnerablePackage, name modules.Packag
 	return false
 }
 
-func GetVulnerablePackages(dir string) ([]VulnerablePackage, error) {
-
-	nancyOutput, err := RunSleuth(dir)
+func GetVulnerablePackages(logger *pterm.Logger, dir string) ([]VulnerablePackage, error) {
+	logger.Debug("Running nancy sleuth...")
+	nancyOutput, err := RunSleuth(logger, dir)
 	if err != nil {
 		return nil, microerror.Mask(err)
 	}
 
+	logger.Debug("Extracting vulnerable packages")
 	vulnerablePackages, err := extractVulnerablePackages(nancyOutput)
-
 	if err != nil {
 		return nil, microerror.Mask(err)
 	}
@@ -99,7 +100,7 @@ func GetVulnerablePackages(dir string) ([]VulnerablePackage, error) {
 	return vulnerablePackages, nil
 }
 
-func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
+func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) {
 	nancyExecutable, err := exec.LookPath("nancy")
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
@@ -109,15 +110,20 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
+	var goStdErr bytes.Buffer
+
 	r, w := io.Pipe()
 	goCmd := exec.Cmd{
 		Path:   goExecutable,
 		Args:   []string{goExecutable, "list", "-json", "-deps", "./..."},
 		Dir:    dir,
 		Stdout: w,
+		Stderr: &goStdErr,
 	}
 
 	var out bytes.Buffer
+	var nancyStdErr bytes.Buffer
+
 	nancyCmd := exec.Cmd{
 		Path: nancyExecutable,
 		Args: []string{
@@ -125,46 +131,56 @@ func RunSleuth(dir string) (NancySleuthOutputJSON, error) {
 			"sleuth",
 			"--skip-update-check",
 			"--quiet",
-			"--exclude-vulnerability-file",
-			"./.nancy-ignore",
-			"--additional-exclude-vulnerability-files",
-			"./.nancy-ignore.generated",
-			"-o",
-			"json-pretty",
+			"--no-color",
+			"--exclude-vulnerability-file=./.nancy-ignore",
+			"--additional-exclude-vulnerability-files=./.nancy-ignore.generated",
+			"--output=json-pretty",
 		},
 		Dir:    dir,
 		Stdin:  r,
 		Stdout: &out,
+		Stderr: &nancyStdErr,
 	}
 
+	logger.Debug("Running go", logger.Args("args", goCmd.Args))
 	err = goCmd.Start()
 	if err != nil {
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
+
+	logger.Debug("Running nancy", logger.Args("args", nancyCmd.Args))
 	err = nancyCmd.Start()
 	if err != nil {
+		logger.Debug("Failed to start nancy command", logger.Args("error", err, "stderr", nancyStdErr.String()))
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 	err = goCmd.Wait()
 	if err != nil {
+		logger.Debug("Failed waiting for go command", logger.Args("error", err, "stderr", goStdErr.String()))
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
 	if err := w.Close(); err != nil {
+		logger.Debug("Failed closing PipeWriter", logger.Args("error", err))
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
 	err = nancyCmd.Wait()
 	if err != nil {
-		if _, ok := err.(*exec.ExitError); ok {
+		logger.Debug("Failed waiting for nancy command", logger.Args("error", err, "stderr", nancyStdErr.String()))
+		if castedError, ok := err.(*exec.ExitError); ok {
+			logger.Debug("Error as *exec.ExitError", logger.Args("error", castedError))
 			// Nancy returns inconistent and unexpected exit codes.
 		} else {
 			return NancySleuthOutputJSON{}, microerror.Mask(err)
 		}
 	}
 
+	logger.Debug("Parsing nancy output")
 	nancyOutput, err := parseNancyOutput(out)
 	if err != nil {
+		logger.Debug("Failed parsing nancy output", logger.Args("error", err))
+		// If the output is not valid JSON, we cannot proceed.
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 

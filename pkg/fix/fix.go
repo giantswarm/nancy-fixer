@@ -20,7 +20,8 @@ const DefaultNancyIgnorePath = ".nancy-ignore"
 func Fix(logger *pterm.Logger, cwd string) error {
 	logger.Info("Gathering vulnerable packages")
 
-	vulnerablePackages, err := nancy.GetVulnerablePackages(cwd)
+	logger.Debug("Calling nancy to find vulnerabilities for path: ", logger.Args("cwd", cwd))
+	vulnerablePackages, err := nancy.GetVulnerablePackages(logger, cwd)
 	if err != nil {
 		return errors.Cause(err)
 	}
@@ -79,7 +80,7 @@ func Fix(logger *pterm.Logger, cwd string) error {
 
 		// refresh list of vulnerable packages, as the fix might have
 		// impacted other vulnerable packages
-		vulnerablePackages, err = nancy.GetVulnerablePackages(cwd)
+		vulnerablePackages, err = nancy.GetVulnerablePackages(logger, cwd)
 
 		if err != nil {
 			return errors.Cause(err)
@@ -203,7 +204,7 @@ func performUpdateSteps(
 		return updateResult, errors.Cause(err)
 	}
 
-	replaceResult, err := updateWithReplaceAndCheck(cwd, p, newestVersion)
+	replaceResult, err := updateWithReplaceAndCheck(logger, cwd, p, newestVersion)
 	updateResult.ReplaceResult = replaceResult
 
 	if err != nil {
@@ -254,7 +255,7 @@ func getAndUpdateParents(
 		return result, errors.Cause(err)
 	}
 
-	isFixed, err := checkVulnerabilityFixed(cwd, p.Name)
+	isFixed, err := checkVulnerabilityFixed(logger, cwd, p.Name)
 	if err != nil {
 		return ParentError, errors.Cause(err)
 	}
@@ -471,6 +472,7 @@ func (r FixResult) isFixed() bool {
 }
 
 func updateWithReplaceAndCheck(
+	logger *pterm.Logger,
 	cwd string,
 	p nancy.VulnerablePackage,
 	newestVersion modules.SemanticVersion,
@@ -489,7 +491,7 @@ func updateWithReplaceAndCheck(
 		return ReplaceError, errors.Cause(err)
 	}
 
-	result, err := performSanityCheck(cwd, p.ToPackage())
+	result, err := performSanityCheck(logger, cwd, p.ToPackage())
 	if err != nil {
 		return ReplaceError, errors.Cause(err)
 	}
@@ -497,10 +499,11 @@ func updateWithReplaceAndCheck(
 }
 
 func performSanityCheck(
+	logger *pterm.Logger,
 	cwd string,
 	p modules.Package,
 ) (result ReplaceResult, err error) {
-	isFixed, err := checkVulnerabilityFixed(cwd, p.Name)
+	isFixed, err := checkVulnerabilityFixed(logger, cwd, p.Name)
 	if err != nil {
 		return ReplaceError, errors.Cause(err)
 	}
@@ -515,10 +518,11 @@ func performSanityCheck(
 }
 
 func checkVulnerabilityFixed(
+	logger *pterm.Logger,
 	cwd string,
 	name modules.PackageName,
 ) (bool, error) {
-	newVulnerablePackages, err := nancy.GetVulnerablePackages(cwd)
+	newVulnerablePackages, err := nancy.GetVulnerablePackages(logger, cwd)
 	if err != nil {
 		return false, errors.Cause(err)
 	}

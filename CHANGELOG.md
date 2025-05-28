@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- More debug logging, especially in case of errors.
+- The environment variable `LOG_LEVEL` can be used to set the log level when executing the container image.
+
 ### Changed
 
 - Resolve updated code linter findings.
+- Nancy bumped to v1.0.48
 
 ## [0.5.0] - 2025-05-14
 
