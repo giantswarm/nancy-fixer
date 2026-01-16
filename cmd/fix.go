@@ -1,15 +1,16 @@
 package cmd
 
 import (
+	"errors"
 	"io"
 	"os"
 
-	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
 	"github.com/giantswarm/nancy-fixer/pkg/fix"
 	"github.com/giantswarm/nancy-fixer/pkg/logging"
+	"github.com/giantswarm/nancy-fixer/pkg/nancy"
 )
 
 // fixCmd represents the fix command
@@ -25,7 +26,7 @@ var fixCmd = &cobra.Command{
 		if logFilePath != "" {
 			logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0640)
 			if err != nil {
-				return errors.Cause(err)
+				return err
 			}
 			defer func() {
 				if err := logFile.Close(); err != nil {
@@ -37,13 +38,17 @@ var fixCmd = &cobra.Command{
 
 		logger, err := createLoggerFromFlags(cmd, writer)
 		if err != nil {
-			return errors.Cause(err)
+			return err
 		}
 		logger.Debug("Logging verbosely", logger.Args("level", logger.Level))
 
 		err = fix.Fix(logger, dir)
 		if err != nil {
-			return errors.Cause(err)
+			// Check if this is a nancy parsing error - if so, silence usage
+			if errors.Is(err, nancy.ErrNancyParsingFailed) {
+				cmd.SilenceUsage = true
+			}
+			return err
 		}
 
 		return nil
@@ -53,16 +58,16 @@ var fixCmd = &cobra.Command{
 func createLoggerFromFlags(cmd *cobra.Command, writer io.Writer) (*pterm.Logger, error) {
 	logLevel, err := logging.LogLevelFromString(cmd.Flag("log-level").Value.String())
 	if err != nil {
-		return nil, errors.Cause(err)
+		return nil, err
 	}
 	logFormatter, err := logging.LogFormatterFromString(cmd.Flag("log-formatter").Value.String())
 	if err != nil {
-		return nil, errors.Cause(err)
+		return nil, err
 	}
 
 	logShowTime, err := cmd.Flags().GetBool("log-show-time")
 	if err != nil {
-		return nil, errors.Cause(err)
+		return nil, err
 	}
 
 	config := logging.LoggerConfig{
