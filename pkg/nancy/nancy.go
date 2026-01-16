@@ -3,6 +3,7 @@ package nancy
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/giantswarm/nancy-fixer/pkg/modules"
 )
+
+var ErrNancyParsingFailed = errors.New("failed to parse nancy output")
 
 type VulnerablePackageJSON struct {
 	Coordinates     string `json:"Coordinates"`
@@ -179,9 +182,14 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 	logger.Debug("Parsing nancy output")
 	nancyOutput, err := parseNancyOutput(out)
 	if err != nil {
-		logger.Debug("Failed parsing nancy output", logger.Args("error", err))
+		// Print nancy stderr here which might contain useful informations to understand which the command failed, e.g 401 errors to OSS index.
+		logger.Error("Failed parsing nancy output", logger.Args("error", err))
 		// If the output is not valid JSON, we cannot proceed.
-		return NancySleuthOutputJSON{}, microerror.Mask(err)
+		// Display nancy's stderr to help diagnose the issue.
+		if nancyStdErr.Len() > 0 {
+			logger.Error("Nancy stderr:", logger.Args("stderr", nancyStdErr.String()))
+		}
+		return NancySleuthOutputJSON{}, ErrNancyParsingFailed
 	}
 
 	return nancyOutput, nil
