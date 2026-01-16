@@ -182,6 +182,7 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 	logger.Debug("Parsing nancy output")
 	nancyOutput, err := parseNancyOutput(out)
 	if err != nil {
+		// Print nancy stderr here which might contain useful informations to understand which the command failed, e.g 401 errors to OSS index.
 		logger.Error("Failed parsing nancy output", logger.Args("error", err))
 		// If the output is not valid JSON, we cannot proceed.
 		// Display nancy's stderr to help diagnose the issue.
