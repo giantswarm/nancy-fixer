@@ -4,7 +4,7 @@
 vulnerabilities.
 
 ## Installation
-Make sure that you have [nancy](https://gonancy.dev/).
+Make sure that you have [nancy](https://github.com/sonatype-nexus-community/nancy/).
 
 ```
 go install github.com/giantswarm/nancy-fixer@latest
