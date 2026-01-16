@@ -179,8 +179,12 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 	logger.Debug("Parsing nancy output")
 	nancyOutput, err := parseNancyOutput(out)
 	if err != nil {
-		logger.Debug("Failed parsing nancy output", logger.Args("error", err))
+		logger.Error("Failed parsing nancy output", logger.Args("error", err))
 		// If the output is not valid JSON, we cannot proceed.
+		// Display nancy's stderr to help diagnose the issue.
+		if nancyStdErr.Len() > 0 {
+			logger.Error("Nancy stderr:", logger.Args("stderr", nancyStdErr.String()))
+		}
 		return NancySleuthOutputJSON{}, microerror.Mask(err)
 	}
 
