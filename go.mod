@@ -9,7 +9,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pterm/pterm v0.12.82
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/mod v0.28.0
+	golang.org/x/mod v0.32.0
 )
 
 require (
