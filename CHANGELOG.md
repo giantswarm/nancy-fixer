@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.1] - 2026-02-27
 
+### Changed
+
+- Improve error log output.
+- Dependency updates.
+
 ## [0.6.0] - 2025-10-17
 
 ### Changed
@@ -25,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Resolve updated code linter findings.
-- Nancy bumped to v1.0.48
+- Nancy bumped to v1.0.48.
 
 ## [0.5.0] - 2025-05-14
 
@@ -36,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.4] - 2024-04-03
 
-- Fix dependency gathering for `nancy sleuth` to unly use return Go modules used in the current project (`go list -json -deps ./...`). Before, all Go modules in the environment were used (`go list -json -deps all`).
+- Fix dependency gathering for `nancy sleuth` to only use return Go modules used in the current project (`go list -json -deps ./...`). Before, all Go modules in the environment were used (`go list -json -deps all`).
 
 ## [0.4.3] - 2024-02-06
 
