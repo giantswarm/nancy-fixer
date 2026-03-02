@@ -3,7 +3,6 @@ package gocli
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -49,7 +48,6 @@ func CallGo(
 		Args:   append([]string{goExecutable}, args...),
 		Stdout: stdout,
 		Stderr: stderr,
-		Env:    append(os.Environ(), "GOTOOLCHAIN=auto"),
 	}
 	if config.Cwd != "" {
 		cmd.Dir = config.Cwd

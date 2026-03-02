@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -123,7 +122,6 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 		Dir:    dir,
 		Stdout: w,
 		Stderr: &goStdErr,
-		Env:    append(os.Environ(), "GOTOOLCHAIN=auto"),
 	}
 
 	var out bytes.Buffer
