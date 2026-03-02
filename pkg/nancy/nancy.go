@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -122,6 +123,9 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 		Dir:    dir,
 		Stdout: w,
 		Stderr: &goStdErr,
+		// Override GOTOOLCHAIN so Go can switch to the version required by the
+		// target repo's go.mod, even when the parent process has GOTOOLCHAIN=local.
+		Env: append(os.Environ(), "GOTOOLCHAIN=auto"),
 	}
 
 	var out bytes.Buffer
