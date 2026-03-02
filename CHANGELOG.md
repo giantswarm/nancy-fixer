@@ -11,12 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Set `GOTOOLCHAIN` mode to auto to prevent issues when GO versions mismatch between nancy-fixer and target repos.
-
-## [0.6.2] - 2026-03-02
-
-### Changed
-
 - Increase debug logging.
 
 ## [0.6.1] - 2026-02-27
