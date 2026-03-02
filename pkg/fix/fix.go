@@ -323,12 +323,15 @@ func updateParentAndCheck(
 	if err != nil {
 		// sometimes the build already breaks during an update
 		// we assume that this is the case, because I don't know to differentiate atm
+		logger.Debug("UpdatePackage failed, assuming broken build",
+			logger.Args("parent", parent.Name, "version", newestVersion, "error", err.Error()))
 		return ParentBrokeBuild, nil
-		// return ParentError, errors.Cause(err)
 	}
 
-	if !modules.VetSuceeds(cwd) {
-		logger.Info("Parent update broke build ")
+	vetOk, vetErr := modules.VetSuceeds(cwd)
+	if !vetOk {
+		logger.Info("Parent update broke build",
+			logger.Args("parent", parent.Name, "error", vetErr))
 		return ParentBrokeBuild, nil
 	}
 	return ParentSuccess, nil
@@ -511,7 +514,10 @@ func performSanityCheck(
 		return ReplaceDidNotFixVulnerability, nil
 	}
 
-	if !modules.VetSuceeds(cwd) {
+	vetOk, vetErr := modules.VetSuceeds(cwd)
+	if !vetOk {
+		logger.Debug("go vet failed after replace",
+			logger.Args("package", p.Name, "error", vetErr))
 		return ReplaceBrokeBuild, nil
 	}
 	return ReplaceSuccess, nil
