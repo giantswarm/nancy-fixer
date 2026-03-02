@@ -2,13 +2,16 @@ package gocli
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
+	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/pterm/pterm"
 )
 
 type GoConfig struct {
-	Cwd string
+	Cwd    string
+	Logger *pterm.Logger
 }
 
 func CallGoNoBuffer(config GoConfig, args ...string) (string, error) {
@@ -17,13 +20,13 @@ func CallGoNoBuffer(config GoConfig, args ...string) (string, error) {
 	err := CallGo(config, &stdout, &stderr, args...)
 
 	if err != nil {
-		return "", errors.Cause(err)
+		return "", err
 	}
 
 	errOutput := stderr.String()
 
 	if errOutput != "" {
-		return stdout.String(), errors.New(errOutput)
+		return stdout.String(), fmt.Errorf("go %s: %s", strings.Join(args, " "), errOutput)
 	}
 	return stdout.String(), nil
 
@@ -37,7 +40,7 @@ func CallGo(
 ) (err error) {
 	goExecutable, err := exec.LookPath("go")
 	if err != nil {
-		return errors.Cause(err)
+		return fmt.Errorf("go executable not found: %w", err)
 	}
 
 	cmd := exec.Cmd{
@@ -50,11 +53,26 @@ func CallGo(
 		cmd.Dir = config.Cwd
 	}
 
+	if config.Logger != nil {
+		config.Logger.Debug("Running go command",
+			config.Logger.Args("args", strings.Join(args, " "), "cwd", config.Cwd))
+	}
+
 	err = cmd.Run()
 	if err != nil {
-		outErr := stderr.String()
-
-		return errors.Wrap(err, outErr)
+		stderrStr := stderr.String()
+		stdoutStr := stdout.String()
+		if config.Logger != nil {
+			config.Logger.Debug("Go command failed",
+				config.Logger.Args(
+					"args", strings.Join(args, " "),
+					"cwd", config.Cwd,
+					"stderr", stderrStr,
+					"stdout", stdoutStr,
+					"error", err.Error(),
+				))
+		}
+		return fmt.Errorf("go %s (cwd=%s): %s: %w", strings.Join(args, " "), config.Cwd, stderrStr, err)
 	}
 	return nil
 }

@@ -132,13 +132,16 @@ func UpdatePackage(cwd string, name PackageName, version SemanticVersion) error 
 	return nil
 }
 
-func VetSuceeds(cwd string) (healthy bool) {
+func VetSuceeds(cwd string) (bool, error) {
 	_, err := gocli.CallGoNoBuffer(
 		gocli.GoConfig{Cwd: cwd},
 		"vet",
 		"./...",
 	)
-	return err == nil
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func UpdatePackageWithReplace(cwd string, name PackageName, oldVersion, version SemanticVersion) error {
