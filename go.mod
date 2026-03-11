@@ -1,6 +1,6 @@
 module github.com/giantswarm/nancy-fixer
 
-go 1.24.0
+go 1.25.0
 
 toolchain go1.25.7
 
@@ -9,7 +9,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pterm/pterm v0.12.83
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/mod v0.33.0
+	golang.org/x/mod v0.34.0
 )
 
 require (
