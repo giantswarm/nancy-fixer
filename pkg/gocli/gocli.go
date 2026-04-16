@@ -3,6 +3,7 @@ package gocli
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -48,6 +49,9 @@ func CallGo(
 		Args:   append([]string{goExecutable}, args...),
 		Stdout: stdout,
 		Stderr: stderr,
+		// Override GOTOOLCHAIN so Go can switch to the version required by the
+		// target repo's go.mod, even when the parent process has GOTOOLCHAIN=local.
+		Env: append(os.Environ(), "GOTOOLCHAIN=auto"),
 	}
 	if config.Cwd != "" {
 		cmd.Dir = config.Cwd
