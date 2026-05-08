@@ -1,4 +1,4 @@
-FROM gsoci.azurecr.io/giantswarm/golang:1.25.9
+FROM gsoci.azurecr.io/giantswarm/golang:1.26.3
 
 LABEL "com.github.actions.name"="nancy-fixer-action"
 LABEL "com.github.actions.description"="runs nancy-fixer to patch vulnerabilities found by Nancy"
