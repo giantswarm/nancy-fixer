@@ -31,6 +31,7 @@ workflows:
             - master
 
     - architect/upload-release-assets:
+        binary: nancy-fixer
         context: architect
         name: upload-release-assets
         requires:
