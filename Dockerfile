@@ -9,7 +9,7 @@ LABEL "com.github.actions.color"="orange"
 LABEL "repository"="https://github.com/giantswarm/nancy-fixer"
 
 # repo: sonatype-nexus-community/nancy
-ARG NANCY_VERSION=v1.2.0
+ARG NANCY_VERSION=v2.0.0
 RUN curl -sSLf https://github.com/sonatype-nexus-community/nancy/releases/download/${NANCY_VERSION}/nancy-${NANCY_VERSION}-linux-${TARGETARCH} -o /usr/local/bin/nancy \
   && chmod a+x /usr/local/bin/nancy
 
