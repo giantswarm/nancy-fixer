@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Scan the full module graph (`go list -json -m all`) instead of only compiled dependencies (`go list -json -deps ./...`) when detecting vulnerabilities.
+
 ## [0.9.0] - 2026-06-12
 
 ### Changed
