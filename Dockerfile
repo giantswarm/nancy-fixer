@@ -1,4 +1,4 @@
-FROM gsoci.azurecr.io/giantswarm/golang:1.26.5
+FROM gsoci.azurecr.io/giantswarm/golang:1.26.6
 
 ARG TARGETARCH
 
