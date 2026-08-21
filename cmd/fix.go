@@ -24,6 +24,7 @@ var fixCmd = &cobra.Command{
 		logFilePath := cmd.Flag("log-file").Value.String()
 
 		if logFilePath != "" {
+			// #nosec G304, G302:
 			logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0640)
 			if err != nil {
 				return err

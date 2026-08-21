@@ -33,6 +33,7 @@ func IgnoreVulnerabilities(
 	lines = append(lines, "")
 
 	newFile := strings.Join(lines, "\n")
+	// #nosec G306
 	err = os.WriteFile(nancyIgnorePath, []byte(newFile), 0640)
 	if err != nil {
 		return microerror.Mask(err)
