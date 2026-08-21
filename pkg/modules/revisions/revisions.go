@@ -79,11 +79,13 @@ func (h *History) PopRevision() {
 func (h *History) ApplyRevision() error {
 	rev := h.Revisions[len(h.Revisions)-1]
 
+	// #nosec G306
 	err := os.WriteFile(path.Join(h.cwd, "go.mod"), []byte(rev.GoMod), 0640)
 	if err != nil {
 		return microerror.Mask(err)
 	}
 
+	// #nosec G306
 	err = os.WriteFile(path.Join(h.cwd, "go.sum"), []byte(rev.GoSum), 0640)
 	if err != nil {
 		return microerror.Mask(err)
