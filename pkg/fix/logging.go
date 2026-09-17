@@ -2,10 +2,12 @@ package fix
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/pterm/pterm"
 
 	"github.com/giantswarm/nancy-fixer/pkg/modules"
+	"github.com/giantswarm/nancy-fixer/pkg/nancy"
 )
 
 func LogParents(
@@ -99,4 +101,61 @@ func logFixReasonSummaryJSON(
 		"ignored":         fixReasonSummary.IgnoredCount,
 	}))
 
+}
+
+func LogOverdueIgnores(
+	logger *pterm.Logger,
+	overdueIgnores map[string]nancy.OverdueIgnore,
+) {
+	if len(overdueIgnores) == 0 {
+		return
+	}
+
+	cves := make([]string, 0, len(overdueIgnores))
+	for cve := range overdueIgnores {
+		cves = append(cves, cve)
+	}
+	sort.Strings(cves)
+
+	switch logger.Formatter {
+	case pterm.LogFormatterColorful:
+		logOverdueIgnoresColorful(overdueIgnores, cves)
+	case pterm.LogFormatterJSON:
+		logOverdueIgnoresJSON(logger, overdueIgnores, cves)
+	}
+}
+
+func logOverdueIgnoresColorful(overdueIgnores map[string]nancy.OverdueIgnore, cves []string) {
+	data := pterm.TableData{{"CVE", "Package", "Ignored since", "Age in days"}}
+	for _, cve := range cves {
+		overdue := overdueIgnores[cve]
+		data = append(data, []string{
+			overdue.CVE,
+			overdue.Package,
+			overdue.Since,
+			fmt.Sprintf("%d", overdue.AgeDays),
+		})
+	}
+
+	pterm.Warning.Println("Overdue ignored vulnerabilities:")
+	err := pterm.DefaultTable.WithBoxed().WithHasHeader().WithData(data).Render()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func logOverdueIgnoresJSON(
+	logger *pterm.Logger,
+	overdueIgnores map[string]nancy.OverdueIgnore,
+	cves []string,
+) {
+	for _, cve := range cves {
+		overdue := overdueIgnores[cve]
+		logger.Warn("overdue ignored vulnerability", pterm.DefaultLogger.ArgsFromMap(map[string]any{
+			"cve":     overdue.CVE,
+			"package": overdue.Package,
+			"since":   overdue.Since,
+			"ageDays": overdue.AgeDays,
+		}))
+	}
 }

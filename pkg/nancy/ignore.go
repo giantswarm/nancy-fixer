@@ -12,11 +12,35 @@ import (
 
 const DefaultIgnorePeriodDays = 30
 
+// DefaultMaxIgnoreAgeDays is the age above which a renewed entry is reported as
+// overdue, when the policy is enabled.
+const DefaultMaxIgnoreAgeDays = 90
+
 const (
 	dateLayout  = "2006-01-02"
 	untilPrefix = "until="
 	sincePrefix = "since="
 )
+
+// IgnorePolicy decides whether a renewed entry is reported as overdue. It is
+// disabled by default and never changes the outcome of a run.
+type IgnorePolicy struct {
+	ReportOverdue bool
+	MaxAgeDays    int
+}
+
+// OverdueIgnore is a renewed entry that has been ignored for longer than the
+// policy allows.
+type OverdueIgnore struct {
+	CVE     string
+	Package string
+	Since   string
+	AgeDays int
+}
+
+func (o OverdueIgnore) String() string {
+	return fmt.Sprintf("%s in %s, ignored for %d days since %s", o.CVE, o.Package, o.AgeDays, o.Since)
+}
 
 // ignoreEntry is a parsed .nancy-ignore line.
 // CVE-2022-29153 until=2026-10-17 # github.com/foo/bar@v1.2.3 since=2026-03-04
@@ -30,19 +54,20 @@ func IgnoreVulnerabilities(
 	vulnerabilities []Vulnerability,
 	p VulnerablePackage,
 	nancyIgnorePath string,
-) error {
+	policy IgnorePolicy,
+) ([]OverdueIgnore, error) {
 	file, err := os.ReadFile(filepath.Clean(nancyIgnorePath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			file = []byte{}
 		} else {
-			return microerror.Mask(err)
+			return nil, microerror.Mask(err)
 		}
 	}
 	lines := strings.Split(string(file), "\n")
 	lines = lines[:len(lines)-1]
 
-	lines = updateNancyIgnoreLines(lines, vulnerabilities, p)
+	lines, overdue := updateNancyIgnoreLines(lines, vulnerabilities, p, policy)
 
 	lines = append(lines, "")
 
@@ -50,17 +75,18 @@ func IgnoreVulnerabilities(
 	// #nosec G306
 	err = os.WriteFile(nancyIgnorePath, []byte(newFile), 0640)
 	if err != nil {
-		return microerror.Mask(err)
+		return nil, microerror.Mask(err)
 	}
 
-	return nil
+	return overdue, nil
 }
 
 func updateNancyIgnoreLines(
 	lines []string,
 	vulnerabilities []Vulnerability,
 	p VulnerablePackage,
-) []string {
+	policy IgnorePolicy,
+) ([]string, []OverdueIgnore) {
 
 	// Map the vulnerabilities for easier access
 	unhandledVulnerabilities := map[string]Vulnerability{}
@@ -69,6 +95,7 @@ func updateNancyIgnoreLines(
 	}
 
 	newLines := []string{}
+	overdue := []OverdueIgnore{}
 	for _, line := range lines {
 
 		entry, ok := parseIgnoreEntry(line)
@@ -82,6 +109,10 @@ func updateNancyIgnoreLines(
 			// Renew ignore entry, keeping the date it was first ignored
 			newLine := generateNancyIgnoreEntry(v, p, entry.since)
 			newLines = append(newLines, newLine)
+
+			if overdueIgnore, found := checkOverdue(entry, p, policy); found {
+				overdue = append(overdue, overdueIgnore)
+			}
 
 			// Delete entry from map
 			delete(unhandledVulnerabilities, v.ID)
@@ -99,7 +130,33 @@ func updateNancyIgnoreLines(
 		newLines = append(newLines, newLine)
 	}
 
-	return newLines
+	return newLines, overdue
+}
+
+// checkOverdue reports a renewed entry whose first ignore date is older than
+// the policy allows. An entry without since= has no known age and is never
+// overdue on its first renewal.
+func checkOverdue(entry ignoreEntry, p VulnerablePackage, policy IgnorePolicy) (OverdueIgnore, bool) {
+	if !policy.ReportOverdue {
+		return OverdueIgnore{}, false
+	}
+
+	since, err := time.Parse(dateLayout, entry.since)
+	if err != nil {
+		return OverdueIgnore{}, false
+	}
+
+	ageDays := int(time.Since(since).Hours() / 24)
+	if ageDays <= policy.MaxAgeDays {
+		return OverdueIgnore{}, false
+	}
+
+	return OverdueIgnore{
+		CVE:     entry.cve,
+		Package: fmt.Sprintf("%s@%s", p.Name, p.Version),
+		Since:   entry.since,
+		AgeDays: ageDays,
+	}, true
 }
 
 // parseIgnoreEntry reports ok only for a line whose second field is the

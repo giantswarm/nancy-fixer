@@ -166,7 +166,71 @@ func TestUpdateNancyIgnoreLines(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.expected, updateNancyIgnoreLines(tc.lines, tc.vulnerabilities, p))
+			lines, overdue := updateNancyIgnoreLines(tc.lines, tc.vulnerabilities, p, IgnorePolicy{})
+			require.Equal(t, tc.expected, lines)
+			require.Empty(t, overdue)
+		})
+	}
+}
+
+func TestUpdateNancyIgnoreLinesReportsOverdue(t *testing.T) {
+	p := testPackage(t)
+
+	entrySince := func(sinceOffsetDays int) string {
+		return fmt.Sprintf("CVE-2022-29153 until=%s # github.com/foo/bar@v1.0.0 since=%s", day(3), day(sinceOffsetDays))
+	}
+
+	testCases := []struct {
+		name     string
+		lines    []string
+		policy   IgnorePolicy
+		expected []OverdueIgnore
+	}{
+		{
+			name:     "policy disabled reports nothing",
+			lines:    []string{entrySince(-200)},
+			policy:   IgnorePolicy{MaxAgeDays: DefaultMaxIgnoreAgeDays},
+			expected: []OverdueIgnore{},
+		},
+		{
+			name:   "renewal older than the threshold is overdue",
+			lines:  []string{entrySince(-200)},
+			policy: IgnorePolicy{ReportOverdue: true, MaxAgeDays: DefaultMaxIgnoreAgeDays},
+			expected: []OverdueIgnore{
+				{
+					CVE:     "CVE-2022-29153",
+					Package: "github.com/foo/bar@v1.2.3",
+					Since:   day(-200),
+					AgeDays: 200,
+				},
+			},
+		},
+		{
+			name:     "renewal younger than the threshold is not overdue",
+			lines:    []string{entrySince(-10)},
+			policy:   IgnorePolicy{ReportOverdue: true, MaxAgeDays: DefaultMaxIgnoreAgeDays},
+			expected: []OverdueIgnore{},
+		},
+		{
+			name:     "renewal of an entry without a first ignore date is not overdue",
+			lines:    []string{fmt.Sprintf("CVE-2022-29153 until=%s # github.com/foo/bar@v1.0.0", day(3))},
+			policy:   IgnorePolicy{ReportOverdue: true, MaxAgeDays: DefaultMaxIgnoreAgeDays},
+			expected: []OverdueIgnore{},
+		},
+		{
+			name:     "first ignore is never overdue",
+			lines:    []string{},
+			policy:   IgnorePolicy{ReportOverdue: true, MaxAgeDays: DefaultMaxIgnoreAgeDays},
+			expected: []OverdueIgnore{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			vulnerabilities := []Vulnerability{{ID: "CVE-2022-29153"}}
+
+			_, overdue := updateNancyIgnoreLines(tc.lines, vulnerabilities, p, tc.policy)
+			require.Equal(t, tc.expected, overdue)
 		})
 	}
 }
