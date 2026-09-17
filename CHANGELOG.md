@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Record the date a CVE was first ignored in the `.nancy-ignore` entry as `since=<date>`, and preserve it when the entry is renewed. An entry without `since=` is treated as first seen now.
+
 ## [0.10.2] - 2026-09-04
 
 ### Changed
