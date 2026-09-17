@@ -2,6 +2,8 @@ package nancy
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -233,4 +235,41 @@ func TestUpdateNancyIgnoreLinesReportsOverdue(t *testing.T) {
 			require.Equal(t, tc.expected, overdue)
 		})
 	}
+}
+
+func TestIgnoreVulnerabilities(t *testing.T) {
+	p := testPackage(t)
+	path := filepath.Join(t.TempDir(), ".nancy-ignore")
+
+	// A missing file is created with the first entry.
+	overdue, err := IgnoreVulnerabilities([]Vulnerability{{ID: "CVE-2022-29153"}}, p, path, IgnorePolicy{})
+	require.NoError(t, err)
+	require.Empty(t, overdue)
+
+	content, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, fresh("CVE-2022-29153", day(0))+"\n", string(content))
+
+	// A second run renews the entry and keeps the first ignore date.
+	require.NoError(t, os.WriteFile(path, []byte(
+		fmt.Sprintf("CVE-2022-29153 until=%s # github.com/foo/bar@v1.0.0 since=%s\n", day(3), day(-200)),
+	), 0640))
+
+	overdue, err = IgnoreVulnerabilities(
+		[]Vulnerability{{ID: "CVE-2022-29153"}},
+		p,
+		path,
+		IgnorePolicy{ReportOverdue: true, MaxAgeDays: DefaultMaxIgnoreAgeDays},
+	)
+	require.NoError(t, err)
+	require.Equal(t, []OverdueIgnore{{
+		CVE:     "CVE-2022-29153",
+		Package: "github.com/foo/bar@v1.2.3",
+		Since:   day(-200),
+		AgeDays: 200,
+	}}, overdue)
+
+	content, err = os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, fresh("CVE-2022-29153", day(-200))+"\n", string(content))
 }
