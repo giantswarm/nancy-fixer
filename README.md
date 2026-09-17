@@ -22,7 +22,19 @@ To specify a different directory use:
 nancy-fixer fix --dir PATH
 ```
 
+When `nancy-fixer` cannot fix a vulnerability, it writes an entry to `.nancy-ignore` with an expiry date and the date the vulnerability was first ignored:
+```
+CVE-2022-29153 until=2026-10-17 # github.com/foo/bar@v1.2.3 since=2026-03-04
+```
 
+A later run keeps `since=` and moves `until=` forward.
+
+To list the entries that have been renewed for longer than 90 days use:
+```
+nancy-fixer fix --report-overdue-ignores
+```
+
+To use a different age use `--max-ignore-age-days`. The report does not change the exit code of the run.
 
 ## Steps 
 For each vulnerability, `nancy-fixer` will try three steps:

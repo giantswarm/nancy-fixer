@@ -43,7 +43,12 @@ var fixCmd = &cobra.Command{
 		}
 		logger.Debug("Logging verbosely", logger.Args("level", logger.Level))
 
-		err = fix.Fix(logger, dir)
+		policy, err := ignorePolicyFromFlags(cmd)
+		if err != nil {
+			return err
+		}
+
+		err = fix.Fix(logger, dir, policy)
 		if err != nil {
 			// Check if this is a nancy parsing error - if so, silence usage
 			// This is to avoid displaying 2 usages at once which is confusing,
@@ -56,6 +61,23 @@ var fixCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func ignorePolicyFromFlags(cmd *cobra.Command) (nancy.IgnorePolicy, error) {
+	reportOverdue, err := cmd.Flags().GetBool("report-overdue-ignores")
+	if err != nil {
+		return nancy.IgnorePolicy{}, err
+	}
+
+	maxAgeDays, err := cmd.Flags().GetInt("max-ignore-age-days")
+	if err != nil {
+		return nancy.IgnorePolicy{}, err
+	}
+
+	return nancy.IgnorePolicy{
+		ReportOverdue: reportOverdue,
+		MaxAgeDays:    maxAgeDays,
+	}, nil
 }
 
 func createLoggerFromFlags(cmd *cobra.Command, writer io.Writer) (*pterm.Logger, error) {
@@ -102,4 +124,6 @@ func init() {
 		cwd = ""
 	}
 	fixCmd.PersistentFlags().String("dir", cwd, "Directory to check for vulnerable packages")
+	fixCmd.PersistentFlags().Bool("report-overdue-ignores", false, "Report renewed ignore entries that are older than --max-ignore-age-days")
+	fixCmd.PersistentFlags().Int("max-ignore-age-days", nancy.DefaultMaxIgnoreAgeDays, "Age in days above which a renewed ignore entry is reported as overdue")
 }

@@ -17,7 +17,7 @@ import (
 
 const DefaultNancyIgnorePath = ".nancy-ignore"
 
-func Fix(logger *pterm.Logger, cwd string) error {
+func Fix(logger *pterm.Logger, cwd string, policy nancy.IgnorePolicy) error {
 	logger.Info("Gathering vulnerable packages")
 
 	logger.Debug("Calling nancy to find vulnerabilities for path: ", logger.Args("cwd", cwd))
@@ -34,6 +34,7 @@ func Fix(logger *pterm.Logger, cwd string) error {
 	}
 
 	fixReasonSummary := makeFixReasonsummary()
+	overdueIgnores := map[string]nancy.OverdueIgnore{}
 
 	for len(vulnerablePackages) > 0 {
 		p := vulnerablePackages[0]
@@ -44,8 +45,11 @@ func Fix(logger *pterm.Logger, cwd string) error {
 
 		logging.LogSection(logger, fmt.Sprintf("Fixing %s@%s", p.Name, p.Version))
 
-		fixResult, err := FixVulnerablePackage(logger, cwd, p, history)
+		fixResult, overdue, err := FixVulnerablePackage(logger, cwd, p, history, policy)
 		fixReasonSummary = fixReasonSummary.Update(fixResult)
+		for _, o := range overdue {
+			overdueIgnores[o.CVE] = o
+		}
 
 		if err != nil {
 			logger.Error(
@@ -92,6 +96,7 @@ func Fix(logger *pterm.Logger, cwd string) error {
 
 	logging.LogSection(logger, "Summary")
 	LogFixReasonSummary(logger, fixReasonSummary)
+	LogOverdueIgnores(logger, overdueIgnores)
 
 	return nil
 }
@@ -101,17 +106,18 @@ func FixVulnerablePackage(
 	cwd string,
 	p nancy.VulnerablePackage,
 	history *revisions.History,
-) (FixResult, error) {
+	policy nancy.IgnorePolicy,
+) (FixResult, []nancy.OverdueIgnore, error) {
 	fixResult := makeEmptyFixResult()
 
 	moduleName, err := modules.GetModuleName(cwd)
 	if err != nil {
-		return fixResult, errors.Cause(err)
+		return fixResult, nil, errors.Cause(err)
 	}
 
 	newestVersion, updateAvailable, err := checkUpdateAvailable(p.ToPackage())
 	if err != nil {
-		return fixResult, errors.Cause(err)
+		return fixResult, nil, errors.Cause(err)
 	}
 
 	if updateAvailable {
@@ -124,24 +130,24 @@ func FixVulnerablePackage(
 	if updateAvailable {
 		beforeUpdate, err := history.PushRevision(fmt.Sprintf("Updating %s", p.Name))
 		if err != nil {
-			return fixResult, errors.Cause(err)
+			return fixResult, nil, errors.Cause(err)
 		}
 
 		updateResult, err := performUpdateSteps(logger, cwd, p, moduleName, newestVersion, history)
 		fixResult = fixResult.injectUpdateResult(updateResult)
 
 		if fixResult.isFixed() {
-			return fixResult, nil
+			return fixResult, nil, nil
 		}
 
 		// update failed - rollback changes
 		oErr := history.GotoRevision(beforeUpdate)
 		if oErr != nil {
-			return fixResult, errors.Cause(errors_.Join(err, oErr))
+			return fixResult, nil, errors.Cause(errors_.Join(err, oErr))
 		}
 
 		if err != nil {
-			return fixResult, errors.Cause(err)
+			return fixResult, nil, errors.Cause(err)
 		}
 
 	}
@@ -149,15 +155,16 @@ func FixVulnerablePackage(
 	// everything else failed - ignore the vulnerability
 	logger.Info(fmt.Sprintf("Ignoring %s@%s", p.Name, p.Version))
 	fixResult.Ignored = true
-	err = nancy.IgnoreVulnerabilities(
+	overdue, err := nancy.IgnoreVulnerabilities(
 		p.Vulnerabilities,
 		p,
 		path.Join(cwd, DefaultNancyIgnorePath),
+		policy,
 	)
 	if err != nil {
-		return fixResult, errors.Cause(err)
+		return fixResult, nil, errors.Cause(err)
 	}
-	return fixResult, nil
+	return fixResult, overdue, nil
 }
 
 func checkUpdateAvailable(
