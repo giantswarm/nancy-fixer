@@ -1,11 +1,10 @@
 package revisions
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
-
-	"github.com/giantswarm/microerror"
 )
 
 const InvalidRevisionIndex = -1
@@ -22,7 +21,7 @@ func BuildHistory(cwd string) (*History, error) {
 	}
 	_, err := history.PushRevision("initial")
 	if err != nil {
-		return nil, microerror.Mask(err)
+		return nil, fmt.Errorf("push initial revision: %w", err)
 	}
 	return history, nil
 }
@@ -36,12 +35,12 @@ type Revision struct {
 func (h *History) PushRevision(action string) (int, error) {
 	goMod, err := readGoMod(h.cwd)
 	if err != nil {
-		return InvalidRevisionIndex, microerror.Mask(err)
+		return InvalidRevisionIndex, fmt.Errorf("read go.mod for revision: %w", err)
 	}
 
 	goSum, err := readGoSum(h.cwd)
 	if err != nil {
-		return InvalidRevisionIndex, microerror.Mask(err)
+		return InvalidRevisionIndex, fmt.Errorf("read go.sum for revision: %w", err)
 	}
 
 	rev := Revision{
@@ -58,7 +57,7 @@ func readGoMod(cwd string) (string, error) {
 	sanitizedPath := filepath.Clean(path.Join(cwd, "go.mod"))
 	goMod, err := os.ReadFile(sanitizedPath)
 	if err != nil {
-		return "", microerror.Mask(err)
+		return "", fmt.Errorf("read go.mod: %w", err)
 	}
 	return string(goMod), nil
 }
@@ -67,7 +66,7 @@ func readGoSum(cwd string) (string, error) {
 	sanitizedPath := filepath.Clean(path.Join(cwd, "go.sum"))
 	goSum, err := os.ReadFile(sanitizedPath)
 	if err != nil {
-		return "", microerror.Mask(err)
+		return "", fmt.Errorf("read go.sum: %w", err)
 	}
 	return string(goSum), nil
 }
@@ -82,13 +81,13 @@ func (h *History) ApplyRevision() error {
 	// #nosec G306
 	err := os.WriteFile(path.Join(h.cwd, "go.mod"), []byte(rev.GoMod), 0640)
 	if err != nil {
-		return microerror.Mask(err)
+		return fmt.Errorf("restore go.mod: %w", err)
 	}
 
 	// #nosec G306
 	err = os.WriteFile(path.Join(h.cwd, "go.sum"), []byte(rev.GoSum), 0640)
 	if err != nil {
-		return microerror.Mask(err)
+		return fmt.Errorf("restore go.sum: %w", err)
 	}
 
 	return nil
@@ -101,7 +100,7 @@ func (h *History) Undo() error {
 
 func (h *History) GotoRevision(index int) error {
 	if index < 0 || index >= len(h.Revisions) {
-		return microerror.Maskf(invalidRevisionError, "invalid revision index %d", index)
+		return fmt.Errorf("invalid revision index %d: %w", index, invalidRevisionError)
 	}
 	for len(h.Revisions) > index+1 {
 		h.PopRevision()

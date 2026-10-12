@@ -1,11 +1,9 @@
 package revisions
 
-import "github.com/giantswarm/microerror"
+import "errors"
 
-var invalidRevisionError = &microerror.Error{
-	Kind: "invalidRevisionError",
-}
+var invalidRevisionError = errors.New("invalidRevisionError")
 
 func IsInvalidRevision(err error) bool {
-	return microerror.Cause(err) == invalidRevisionError
+	return errors.Is(err, invalidRevisionError)
 }

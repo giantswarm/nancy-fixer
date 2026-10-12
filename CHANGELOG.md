@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Update go dependencies to fix the `golang.org/x/text` CVE
+- Replace `github.com/giantswarm/microerror` with standard go `errors` lib
 
 ## [0.10.2] - 2026-09-04
 
