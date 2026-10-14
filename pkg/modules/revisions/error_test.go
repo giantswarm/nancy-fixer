@@ -9,16 +9,16 @@ import (
 
 func TestIsInvalidRevision(t *testing.T) {
 	if !IsInvalidRevision(invalidRevisionError) {
-		t.Fatal("predicate did not recognize sentinel")
+		t.Fatal("error check returns unexpected result")
 	}
 
 	wrapped := fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", invalidRevisionError))
 	if !IsInvalidRevision(wrapped) {
-		t.Fatal("predicate did not recognize wrapped sentinel")
+		t.Fatal("error check failed for wrapped error")
 	}
 
 	if IsInvalidRevision(errors.New("unrelated error")) {
-		t.Fatal("predicate recognized unrelated error")
+		t.Fatal("error check incorrectly succeeded for unrelated error")
 	}
 }
 
