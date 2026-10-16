@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/giantswarm/microerror"
 )
 
 const DefaultIgnorePeriodDays = 30
@@ -61,7 +59,7 @@ func IgnoreVulnerabilities(
 		if os.IsNotExist(err) {
 			file = []byte{}
 		} else {
-			return nil, microerror.Mask(err)
+			return nil, fmt.Errorf("read nancy ignore file: %w", err)
 		}
 	}
 	lines := strings.Split(string(file), "\n")
@@ -75,7 +73,7 @@ func IgnoreVulnerabilities(
 	// #nosec G306
 	err = os.WriteFile(nancyIgnorePath, []byte(newFile), 0640)
 	if err != nil {
-		return nil, microerror.Mask(err)
+		return nil, fmt.Errorf("write nancy ignore file: %w", err)
 	}
 
 	return overdue, nil

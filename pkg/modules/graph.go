@@ -1,9 +1,8 @@
 package modules
 
 import (
+	"fmt"
 	"strings"
-
-	"github.com/giantswarm/microerror"
 
 	"github.com/giantswarm/nancy-fixer/pkg/gocli"
 )
@@ -20,7 +19,7 @@ func (l DependencyLink) String() string {
 func BuildDependencyLinks(cwd string) ([]DependencyLink, error) {
 	out, err := gocli.CallGoNoBuffer(gocli.GoConfig{Cwd: cwd}, "mod", "graph")
 	if err != nil {
-		return nil, microerror.Mask(err)
+		return nil, fmt.Errorf("run go mod graph: %w", err)
 	}
 	lines := strings.Split(string(out), "\n")
 	lines = lines[:len(lines)-1] // last line is empty
@@ -30,7 +29,7 @@ func BuildDependencyLinks(cwd string) ([]DependencyLink, error) {
 	for _, line := range lines {
 		dependencyLink, err := buildDependencyLink(line)
 		if err != nil {
-			return nil, microerror.Mask(err)
+			return nil, fmt.Errorf("parse dependency graph: %w", err)
 		}
 		dependencyLinks = append(dependencyLinks, dependencyLink)
 	}
@@ -41,11 +40,7 @@ func BuildDependencyLinks(cwd string) ([]DependencyLink, error) {
 func buildDependencyLink(line string) (DependencyLink, error) {
 	parts := strings.Split(line, " ")
 	if len(parts) != 2 {
-		return DependencyLink{}, microerror.Maskf(
-			invalidDependencyLineError,
-			"invalid dependency line: %s",
-			line,
-		)
+		return DependencyLink{}, fmt.Errorf("invalid dependency line: %s: %w", line, invalidDependencyLineError)
 	}
 	return DependencyLink{
 		Parent: parts[0],
@@ -152,15 +147,11 @@ func getPackagesFromMap(m map[string]bool) []Package {
 func GetModuleName(cwd string) (PackageName, error) {
 	out, err := gocli.CallGoNoBuffer(gocli.GoConfig{Cwd: cwd}, "list", "-m")
 	if err != nil {
-		return "", microerror.Mask(err)
+		return "", fmt.Errorf("run go list -m: %w", err)
 	}
 	lines := strings.Split(string(out), "\n")
 	if len(lines) != 2 {
-		return "", microerror.Maskf(
-			invalidModuleListError,
-			"invalid output of go list -m: %s",
-			out,
-		)
+		return "", fmt.Errorf("invalid output of go list -m: %s: %w", out, invalidModuleListError)
 	}
 	return PackageName(lines[0]), nil
 }

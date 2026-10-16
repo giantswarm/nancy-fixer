@@ -1,43 +1,33 @@
 package modules
 
-import "github.com/giantswarm/microerror"
+import "errors"
 
-var invalidSemVerError = &microerror.Error{
-	Kind: "invalidSemVerError",
-}
+var invalidSemVerError = errors.New("invalidSemVerError")
 
 func IsInvalidSemVerError(err error) bool {
-	return microerror.Cause(err) == invalidSemVerError
+	return errors.Is(err, invalidSemVerError)
 }
 
-var invalidDependencyLineError = &microerror.Error{
-	Kind: "invalidDependencyLineError",
-}
+var invalidDependencyLineError = errors.New("invalidDependencyLineError")
 
 func IsInvalidDependencyLineError(err error) bool {
-	return microerror.Cause(err) == invalidDependencyLineError
+	return errors.Is(err, invalidDependencyLineError)
 }
 
-var invalidModuleListError = &microerror.Error{
-	Kind: "invalidModuleListError",
-}
+var invalidModuleListError = errors.New("invalidModuleListError")
 
 func IsInvalidModuleListError(err error) bool {
-	return microerror.Cause(err) == invalidModuleListError
+	return errors.Is(err, invalidModuleListError)
 }
 
-var noVersionsFoundError = &microerror.Error{
-	Kind: "noVersionsFoundError",
-}
+var noVersionsFoundError = errors.New("noVersionsFoundError")
 
 func IsNoVersionsFoundError(err error) bool {
-	return microerror.Cause(err) == noVersionsFoundError
+	return errors.Is(err, noVersionsFoundError)
 }
 
-var goModTidyError = &microerror.Error{
-	Kind: "goModTidyError",
-}
+var goModTidyError = errors.New("goModTidyError")
 
 func IsGoModTidyError(err error) bool {
-	return microerror.Cause(err) == goModTidyError
+	return errors.Is(err, goModTidyError)
 }

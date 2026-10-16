@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/giantswarm/microerror"
 	"golang.org/x/mod/semver"
 
 	"github.com/giantswarm/nancy-fixer/pkg/gocli"
@@ -23,12 +22,8 @@ func (v SemanticVersion) LessThan(other SemanticVersion) bool {
 func BuildSemVer(s string) (SemanticVersion, error) {
 	if !semver.IsValid(s) {
 		return SemanticVersion(
-				"",
-			), microerror.Maskf(
-				invalidSemVerError,
-				"%s is not a valid semantic version",
-				s,
-			)
+			"",
+		), fmt.Errorf("%s is not a valid semantic version: %w", s, invalidSemVerError)
 	}
 
 	return SemanticVersion(s), nil
@@ -58,7 +53,7 @@ func GetVersionsForPackage(name PackageName) ([]SemanticVersion, error) {
 		string(name),
 	)
 	if err != nil {
-		return nil, microerror.Mask(err)
+		return nil, fmt.Errorf("list versions for %s: %w", name, err)
 	}
 
 	versions := []SemanticVersion{}
@@ -91,15 +86,11 @@ func RemovePreReleaseVersions(versions []SemanticVersion) []SemanticVersion {
 func GetNewestVersion(name PackageName) (SemanticVersion, error) {
 	versions, err := GetVersionsForPackage(name)
 	if err != nil {
-		return "", microerror.Mask(err)
+		return "", fmt.Errorf("get newest version for %s: %w", name, err)
 	}
 
 	if len(versions) == 0 {
-		return "", microerror.Maskf(
-			noVersionsFoundError,
-			"no versions found for %s",
-			name,
-		)
+		return "", fmt.Errorf("no versions found for %s: %w", name, noVersionsFoundError)
 	}
 	versions = RemovePreReleaseVersions(versions)
 
@@ -117,7 +108,7 @@ func UpdatePackage(cwd string, name PackageName, version SemanticVersion) error 
 	)
 	// go get writes to stderr
 	if err != nil {
-		return microerror.Mask(err)
+		return fmt.Errorf("run go get for %s@%s: %w", name, version, err)
 	}
 
 	_, err = gocli.CallGoNoBuffer(
@@ -126,7 +117,7 @@ func UpdatePackage(cwd string, name PackageName, version SemanticVersion) error 
 		"tidy",
 	)
 	if err != nil {
-		return microerror.Mask(err)
+		return fmt.Errorf("run go mod tidy: %w", err)
 	}
 
 	return nil
@@ -153,7 +144,7 @@ func UpdatePackageWithReplace(cwd string, name PackageName, oldVersion, version 
 		fmt.Sprintf("%s@%s=%s@%s", name, oldVersion, name, version),
 	)
 	if err != nil {
-		return microerror.Mask(err)
+		return fmt.Errorf("add replace directive for %s@%s: %w", name, oldVersion, err)
 	}
 
 	_, err = gocli.CallGoNoBuffer(
@@ -162,7 +153,7 @@ func UpdatePackageWithReplace(cwd string, name PackageName, oldVersion, version 
 		"tidy",
 	)
 	if err != nil {
-		return microerror.Mask(goModTidyError)
+		return fmt.Errorf("go mod tidy failed: %w", goModTidyError)
 	}
 
 	return nil

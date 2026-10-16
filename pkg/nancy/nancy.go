@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/giantswarm/microerror"
 	"github.com/pterm/pterm"
 
 	"github.com/giantswarm/nancy-fixer/pkg/modules"
@@ -92,13 +91,13 @@ func GetVulnerablePackages(logger *pterm.Logger, dir string) ([]VulnerablePackag
 	logger.Debug("Running nancy sleuth...")
 	nancyOutput, err := RunSleuth(logger, dir)
 	if err != nil {
-		return nil, microerror.Mask(err)
+		return nil, fmt.Errorf("run nancy sleuth: %w", err)
 	}
 
 	logger.Debug("Extracting vulnerable packages")
 	vulnerablePackages, err := extractVulnerablePackages(nancyOutput)
 	if err != nil {
-		return nil, microerror.Mask(err)
+		return nil, fmt.Errorf("extract vulnerable packages: %w", err)
 	}
 
 	return vulnerablePackages, nil
@@ -107,11 +106,11 @@ func GetVulnerablePackages(logger *pterm.Logger, dir string) ([]VulnerablePackag
 func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) {
 	nancyExecutable, err := exec.LookPath("nancy")
 	if err != nil {
-		return NancySleuthOutputJSON{}, microerror.Mask(err)
+		return NancySleuthOutputJSON{}, fmt.Errorf("find nancy executable: %w", err)
 	}
 	goExecutable, err := exec.LookPath("go")
 	if err != nil {
-		return NancySleuthOutputJSON{}, microerror.Mask(err)
+		return NancySleuthOutputJSON{}, fmt.Errorf("find go executable: %w", err)
 	}
 
 	var goStdErr bytes.Buffer
@@ -152,24 +151,24 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 	logger.Debug("Running go", logger.Args("args", goCmd.Args))
 	err = goCmd.Start()
 	if err != nil {
-		return NancySleuthOutputJSON{}, microerror.Mask(err)
+		return NancySleuthOutputJSON{}, fmt.Errorf("start go list command: %w", err)
 	}
 
 	logger.Debug("Running nancy", logger.Args("args", nancyCmd.Args))
 	err = nancyCmd.Start()
 	if err != nil {
 		logger.Debug("Failed to start nancy command", logger.Args("error", err, "stderr", nancyStdErr.String()))
-		return NancySleuthOutputJSON{}, microerror.Mask(err)
+		return NancySleuthOutputJSON{}, fmt.Errorf("start nancy command: %w", err)
 	}
 	err = goCmd.Wait()
 	if err != nil {
 		logger.Debug("Failed waiting for go command", logger.Args("error", err, "stderr", goStdErr.String()))
-		return NancySleuthOutputJSON{}, microerror.Mask(err)
+		return NancySleuthOutputJSON{}, fmt.Errorf("wait for go list command: %w", err)
 	}
 
 	if err := w.Close(); err != nil {
 		logger.Debug("Failed closing PipeWriter", logger.Args("error", err))
-		return NancySleuthOutputJSON{}, microerror.Mask(err)
+		return NancySleuthOutputJSON{}, fmt.Errorf("close go list pipe: %w", err)
 	}
 
 	err = nancyCmd.Wait()
@@ -179,7 +178,7 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 			logger.Debug("Error as *exec.ExitError", logger.Args("error", castedError))
 			// Nancy returns inconistent and unexpected exit codes.
 		} else {
-			return NancySleuthOutputJSON{}, microerror.Mask(err)
+			return NancySleuthOutputJSON{}, fmt.Errorf("wait for nancy command: %w", err)
 		}
 	}
 
@@ -204,7 +203,7 @@ func parseNancyOutput(output bytes.Buffer) (NancySleuthOutputJSON, error) {
 
 	err := json.Unmarshal(output.Bytes(), &jsonParsed)
 	if err != nil {
-		return NancySleuthOutputJSON{}, microerror.Mask(err)
+		return NancySleuthOutputJSON{}, fmt.Errorf("parse nancy output: %w", err)
 	}
 	return jsonParsed, nil
 }
@@ -228,7 +227,7 @@ func extractVulnerablePackages(outputJSON NancySleuthOutputJSON) ([]VulnerablePa
 		name, version := UnpackCoordinates(vulnerablePackageJSON.Coordinates)
 		semVer, err := modules.BuildSemVer(version)
 		if err != nil {
-			return nil, microerror.Mask(err)
+			return nil, fmt.Errorf("parse vulnerable package version: %w", err)
 		}
 
 		vulnerablePackage := VulnerablePackage{
