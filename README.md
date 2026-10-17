@@ -39,8 +39,10 @@ To use a different age use `--max-ignore-age-days`. The report does not change t
 ## Steps 
 For each vulnerability, `nancy-fixer` will try three steps:
 1. Update all dependencies that require the vulnerable package (in the case of a direct dependency this could be simply the vulnerable package itself)
-2. Update the vulnerable package by adding a `replace` in the `go.mod` file.
+2. Bump the vulnerable package itself with `go get <package>@<newest version>`, and keep the bump only when it fixes the vulnerability and `go vet ./...` passes.
 3. Ignore the vulnerable package.
+
+`nancy-fixer` never adds a `replace` or `exclude` directive to `go.mod`: `go install <module>@<version>` refuses a module whose `go.mod` carries one.
 
 ## Limitations
 

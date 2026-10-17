@@ -14,8 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Bump a vulnerable module with `go get` when updating its parents does not fix it, instead of adding a `replace` directive to `go.mod`. `go install <module>@<version>` refuses a module whose `go.mod` has a `replace` or `exclude` directive. The summary reports "fixed via bump" instead of "fixed via replace".
+
 - Update go dependencies to fix the `golang.org/x/text` CVE
 - Replace `github.com/giantswarm/microerror` with standard go `errors` lib
+
+### Fixed
+
+- Judge `go get`, `go mod tidy` and `go vet` by their exit code. Their progress output on stderr made every parent update count as a broken build.
 
 ## [0.10.2] - 2026-09-04
 

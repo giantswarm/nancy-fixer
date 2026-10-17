@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -100,61 +101,34 @@ func GetNewestVersion(name PackageName) (SemanticVersion, error) {
 	return SemanticVersion(stringSemVers[len(stringSemVers)-1]), nil
 }
 
+// UpdatePackage bumps name to version with go get and tidies the module.
+// go get and go mod tidy report progress ("go: upgraded …") on stderr, so
+// only their exit codes decide whether they failed.
 func UpdatePackage(cwd string, name PackageName, version SemanticVersion) error {
-	_, err := gocli.CallGoNoBuffer(
-		gocli.GoConfig{Cwd: cwd},
-		"get",
-		fmt.Sprintf("%s@%s", name, version),
-	)
-	// go get writes to stderr
+	err := runGo(cwd, "get", fmt.Sprintf("%s@%s", name, version))
 	if err != nil {
 		return fmt.Errorf("run go get for %s@%s: %w", name, version, err)
 	}
 
-	_, err = gocli.CallGoNoBuffer(
-		gocli.GoConfig{Cwd: cwd},
-		"mod",
-		"tidy",
-	)
+	err = runGo(cwd, "mod", "tidy")
 	if err != nil {
-		return fmt.Errorf("run go mod tidy: %w", err)
+		return fmt.Errorf("run go mod tidy: %w: %w", goModTidyError, err)
 	}
 
 	return nil
 }
 
 func VetSuceeds(cwd string) (bool, error) {
-	_, err := gocli.CallGoNoBuffer(
-		gocli.GoConfig{Cwd: cwd},
-		"vet",
-		"./...",
-	)
+	err := runGo(cwd, "vet", "./...")
 	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func UpdatePackageWithReplace(cwd string, name PackageName, oldVersion, version SemanticVersion) error {
-	_, err := gocli.CallGoNoBuffer(
-		gocli.GoConfig{Cwd: cwd},
-		"mod",
-		"edit",
-		"-replace",
-		fmt.Sprintf("%s@%s=%s@%s", name, oldVersion, name, version),
-	)
-	if err != nil {
-		return fmt.Errorf("add replace directive for %s@%s: %w", name, oldVersion, err)
-	}
-
-	_, err = gocli.CallGoNoBuffer(
-		gocli.GoConfig{Cwd: cwd},
-		"mod",
-		"tidy",
-	)
-	if err != nil {
-		return fmt.Errorf("go mod tidy failed: %w", goModTidyError)
-	}
-
-	return nil
+// runGo runs go in cwd and fails only on a non-zero exit code; the error
+// carries go's stderr.
+func runGo(cwd string, args ...string) error {
+	var stdout, stderr bytes.Buffer
+	return gocli.CallGo(gocli.GoConfig{Cwd: cwd}, &stdout, &stderr, args...)
 }
