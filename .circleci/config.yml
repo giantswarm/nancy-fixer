@@ -1,59 +1,47 @@
 version: 2.1
 
-orbs:
-  architect: giantswarm/architect@10.13.9
+# Diagnostic branch for https://github.com/giantswarm/nancy-fixer/issues/277, never merged.
+# Prints the HTTP status, credit headers and error body the Sonatype Guide API returns to
+# the architect context, and the names (never values) of the credential variables.
+jobs:
+  guide-diag:
+    docker:
+    - image: cimg/base:current
+    resource_class: small
+    steps:
+    - run:
+        name: Guide API status with the architect context's credentials
+        command: |
+          set +x
+          echo "credential variable names in the job:"
+          env | cut -d= -f1 | grep -i -E 'guide|ossi|nancy|sonatype' | sort || echo "  (none)"
+          payload='{"coordinates":["pkg:golang/github.com/pkg/errors@v0.9.1"]}'
+          probe() {
+            local label="$1" path="$2"; shift 2
+            echo
+            echo "=== ${label}: POST ${path}"
+            code=$(curl -sS -o /tmp/body -D /tmp/headers -w '%{http_code}' -X POST \
+              "https://api.guide.sonatype.com${path}" \
+              -H 'Content-Type: application/json' -H 'Accept: application/json' \
+              -A 'nancy-client/2.1.0' "$@" -d "$payload")
+            echo "status: ${code}"
+            grep -i -E '^(content-type|x-credit|x-ratelimit|x-request|retry-after|www-authenticate)' /tmp/headers || true
+            echo "body (first 2000 bytes):"; head -c 2000 /tmp/body; echo
+          }
+          probe "no credentials" /api/v3/component-report
+          if [ -n "${GUIDE_TOKEN:-}" ]; then
+            probe "bearer GUIDE_TOKEN" /api/v3/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
+            probe "bearer GUIDE_TOKEN, authorized path" /api/v3/authorized/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
+          fi
+          if [ -n "${OSSI_USERNAME:-}" ]; then
+            probe "basic OSSI_USERNAME/OSSI_TOKEN" /api/v3/component-report -u "${OSSI_USERNAME}:${OSSI_TOKEN:-}"
+            probe "basic OSSI_USERNAME/OSSI_TOKEN, authorized path" /api/v3/authorized/component-report -u "${OSSI_USERNAME}:${OSSI_TOKEN:-}"
+          elif [ -n "${OSSI_TOKEN:-}" ]; then
+            probe "bearer OSSI_TOKEN" /api/v3/component-report -H "Authorization: Bearer ${OSSI_TOKEN}"
+          fi
 
 workflows:
-  test:
+  diag:
     jobs:
-    - architect/go-build:
+    - guide-diag:
         context: architect
-        name: go-build
-        binary: nancy-fixer
-        resource_class: large
-        architectures: "linux/amd64,linux/arm64,darwin/amd64,darwin/arm64,windows/amd64,windows/arm64"
-        filters:
-          tags:
-            only: /^v.*/
-
-    - architect/push-to-registries:
-        context: architect
-        name: push-to-registries
-        requires:
-        - go-build
-        platforms: "linux/amd64,linux/arm64"
-        # Push to gsoci only; the Aliyun mirror is the sync-china-registry job
-        # below, so a stalled mirror never holds up the gsoci publish.
-        split-china-push: true
-        filters:
-          tags:
-            only: /^v.*/
-          branches:
-            ignore:
-            - main
-            - master
-
-    # Mirror gsoci -> Aliyun from the in-China runner. Nothing requires this
-    # job: the gsoci push and the release assets publish without it.
-    - architect/sync-china-registry:
-        context: architect
-        name: sync-china-registry
-        requires:
-        - push-to-registries
-        filters:
-          tags:
-            only: /^v.*/
-          branches:
-            ignore: /.*/
-
-    - architect/upload-release-assets:
-        binary: nancy-fixer
-        context: architect
-        name: upload-release-assets
-        requires:
-        - go-build
-        filters:
-          branches:
-            ignore: /.*/
-          tags:
-            only: /^v.*/
