@@ -39,6 +39,11 @@ jobs:
           echo; echo "batch size: $(wc -l < /tmp/purls)"
           payload=$(jq -R . /tmp/purls | jq -s -c '{coordinates: .}')
           probe "bearer GUIDE_TOKEN, real batch" /api/v3/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
+          echo; echo "OSSI_OSSINDEXURL host: $(printf '%s' "${OSSI_OSSINDEXURL:-}" | sed -E 's#^(https?://[^/]+).*#\1#')"
+          payload=$(head -2 /tmp/purls | jq -R . | jq -s -c '{coordinates: .}')
+          base="${OSSI_OSSINDEXURL%/}"
+          echo "=== nancy's own URL, bearer GUIDE_TOKEN, 2 purls"
+          curl -sS -o /tmp/body -w 'status: %{http_code}\n' -X POST "${base}/api/v3/component-report" -H 'Content-Type: application/json' -H "Authorization: Bearer ${GUIDE_TOKEN}" -d "$payload"; head -c 600 /tmp/body; echo
           payload='{"coordinates":[]}'
           probe "bearer GUIDE_TOKEN, empty batch" /api/v3/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
           payload='{"coordinates":["pkg:golang/example.invalid/none@v0.0.0"]}'
