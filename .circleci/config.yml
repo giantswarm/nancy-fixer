@@ -1,9 +1,9 @@
 version: 2.1
 
 # Diagnostic branch for https://github.com/giantswarm/nancy-fixer/issues/277, never merged:
-# a go-build with the architect-orb branch that names the Sonatype Guide status.
+# a go-build with architect-orb v10.14.1-rc.1 (merge commit b7ebe742) that names the Sonatype Guide status.
 orbs:
-  architect: giantswarm/architect@dev:fix-277-guide-status
+  architect: giantswarm/architect@dev:b7ebe742f0a1e9837e66517c6d3af4d23c1cdfbd
 
 workflows:
   diag:
