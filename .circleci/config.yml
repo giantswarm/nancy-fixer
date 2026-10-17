@@ -1,65 +1,16 @@
 version: 2.1
 
-# Diagnostic branch for https://github.com/giantswarm/nancy-fixer/issues/277, never merged.
-# Prints the HTTP status, credit headers and error body the Sonatype Guide API returns to
-# the architect context, and the names (never values) of the credential variables.
-jobs:
-  guide-diag:
-    docker:
-    - image: cimg/go:1.25
-    resource_class: small
-    steps:
-    - checkout
-    - run:
-        name: Guide API status with the architect context's credentials
-        command: |
-          set +x
-          echo "credential variable names in the job:"
-          env | cut -d= -f1 | grep -i -E 'guide|ossi|nancy|sonatype' | sort || echo "  (none)"
-          payload='{"coordinates":["pkg:golang/github.com/pkg/errors@v0.9.1"]}'
-          probe() {
-            local label="$1" path="$2"; shift 2
-            echo
-            echo "=== ${label}: POST ${path}"
-            code=$(curl -sS -o /tmp/body -D /tmp/headers -w '%{http_code}' -X POST \
-              "https://api.guide.sonatype.com${path}" \
-              -H 'Content-Type: application/json' -H 'Accept: application/json' \
-              -A 'nancy-client/2.1.0' "$@" -d "$payload")
-            echo "status: ${code}"
-            grep -i -E '^(content-type|x-credit|x-ratelimit|x-request|retry-after|www-authenticate)' /tmp/headers || true
-            echo "body (first 2000 bytes):"; head -c 2000 /tmp/body; echo
-          }
-          probe "no credentials" /api/v3/component-report
-          if [ -n "${GUIDE_TOKEN:-}" ]; then
-            probe "bearer GUIDE_TOKEN" /api/v3/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
-            probe "bearer GUIDE_TOKEN, authorized path" /api/v3/authorized/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
-          fi
-          # A real batch, as nancy sends it: up to 128 module purls of this repository.
-          go list -m -f '{{if not .Main}}pkg:golang/{{.Path}}@{{.Version}}{{end}}' all | grep -v '^$' | head -128 > /tmp/purls
-          echo; echo "batch size: $(wc -l < /tmp/purls)"
-          payload=$(jq -R . /tmp/purls | jq -s -c '{coordinates: .}')
-          probe "bearer GUIDE_TOKEN, real batch" /api/v3/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
-          echo; echo "OSSI_OSSINDEXURL host: $(printf '%s' "${OSSI_OSSINDEXURL:-}" | sed -E 's#^(https?://[^/]+).*#\1#')"
-          payload=$(head -2 /tmp/purls | jq -R . | jq -s -c '{coordinates: .}')
-          base="${OSSI_OSSINDEXURL%/}"
-          echo "=== nancy's own URL, bearer GUIDE_TOKEN, 2 purls"
-          curl -sS -o /tmp/body -w 'status: %{http_code}\n' -X POST "${base}/api/v3/component-report" -H 'Content-Type: application/json' -H "Authorization: Bearer ${GUIDE_TOKEN}" -d "$payload"; head -c 600 /tmp/body; echo
-          payload='{"coordinates":[]}'
-          probe "bearer GUIDE_TOKEN, empty batch" /api/v3/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
-          payload='{"coordinates":["pkg:golang/example.invalid/none@v0.0.0"]}'
-          probe "bearer GUIDE_TOKEN, unknown purl" /api/v3/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
-          payload=$(head -5 /tmp/purls | jq -R . | jq -s -c '{coordinates: .}')
-          probe "bearer GUIDE_TOKEN, 5 purls" /api/v3/component-report -H "Authorization: Bearer ${GUIDE_TOKEN}"
-          payload='{"coordinates":["pkg:golang/github.com/pkg/errors@v0.9.1"]}'
-          if [ -n "${OSSI_USERNAME:-}" ]; then
-            probe "basic OSSI_USERNAME/OSSI_TOKEN" /api/v3/component-report -u "${OSSI_USERNAME}:${OSSI_TOKEN:-}"
-            probe "basic OSSI_USERNAME/OSSI_TOKEN, authorized path" /api/v3/authorized/component-report -u "${OSSI_USERNAME}:${OSSI_TOKEN:-}"
-          elif [ -n "${OSSI_TOKEN:-}" ]; then
-            probe "bearer OSSI_TOKEN" /api/v3/component-report -H "Authorization: Bearer ${OSSI_TOKEN}"
-          fi
+# Diagnostic branch for https://github.com/giantswarm/nancy-fixer/issues/277, never merged:
+# a go-build with the architect-orb branch that names the Sonatype Guide status.
+orbs:
+  architect: giantswarm/architect@dev:fix-277-guide-status
 
 workflows:
   diag:
     jobs:
-    - guide-diag:
+    - architect/go-build:
         context: architect
+        name: go-build
+        binary: nancy-fixer
+        resource_class: large
+        architectures: "linux/amd64"
