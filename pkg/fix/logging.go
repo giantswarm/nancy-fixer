@@ -75,13 +75,13 @@ func LogFixReasonSummary(
 func logFixReasonSummaryColorful(fixReasonSummary FixReasonSummary) {
 	// err := pterm.DefaultBarChart.WithBars([]pterm.Bar{
 	// 	{Label: "Errors", Value: fixReasonSummary.NotFixedCount},
-	// 	{Label: "Fixed via replace", Value: fixReasonSummary.FixedViaReplaceCount},
+	// 	{Label: "Fixed via bump", Value: fixReasonSummary.FixedViaBumpCount},
 	// 	{Label: "Fixed via parent update(s)", Value: fixReasonSummary.FixedViaParentCount},
 	// 	{Label: "Ignored", Value: fixReasonSummary.IgnoredCount},
 	// }).WithHorizontal().WithShowValue().Render()
 	err := pterm.DefaultTable.WithBoxed().WithHasHeader().WithData(pterm.TableData{
 		{"Errors", fmt.Sprintf("%d", fixReasonSummary.NotFixedCount)},
-		{"Fixed via replace", fmt.Sprintf("%d", fixReasonSummary.FixedViaReplaceCount)},
+		{"Fixed via bump", fmt.Sprintf("%d", fixReasonSummary.FixedViaBumpCount)},
 		{"Fixed via parent update(s)", fmt.Sprintf("%d", fixReasonSummary.FixedViaParentCount)},
 		{"Ignored", fmt.Sprintf("%d", fixReasonSummary.IgnoredCount)},
 	}).Render()
@@ -95,10 +95,10 @@ func logFixReasonSummaryJSON(
 	fixReasonSummary FixReasonSummary,
 ) {
 	logger.Info("fix reason summary", pterm.DefaultLogger.ArgsFromMap(map[string]any{
-		"notFixed":        fixReasonSummary.NotFixedCount,
-		"fixedViaReplace": fixReasonSummary.FixedViaReplaceCount,
-		"fixedViaParent":  fixReasonSummary.FixedViaParentCount,
-		"ignored":         fixReasonSummary.IgnoredCount,
+		"notFixed":       fixReasonSummary.NotFixedCount,
+		"fixedViaBump":   fixReasonSummary.FixedViaBumpCount,
+		"fixedViaParent": fixReasonSummary.FixedViaParentCount,
+		"ignored":        fixReasonSummary.IgnoredCount,
 	}))
 
 }

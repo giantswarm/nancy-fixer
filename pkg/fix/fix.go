@@ -204,27 +204,27 @@ func performUpdateSteps(
 		return updateResult, nil
 	}
 
-	logger.Info("Parent update failed - trying to update via replace")
-	// rollback changes before proceeding with update via replace
+	logger.Info("Parent update failed - trying to bump the vulnerable module")
+	// rollback changes before bumping the vulnerable module itself
 	err = history.GotoRevision(before)
 	if err != nil {
 		return updateResult, errors.Cause(err)
 	}
 
-	replaceResult, err := updateWithReplaceAndCheck(logger, cwd, p, newestVersion)
-	updateResult.ReplaceResult = replaceResult
+	bumpResult, err := bumpAndCheck(logger, cwd, p, newestVersion)
+	updateResult.BumpResult = bumpResult
 
 	if err != nil {
 		return updateResult, errors.Cause(err)
 	}
 
-	switch replaceResult {
-	case ReplaceSuccess:
-		logger.Info("Update via replace successful")
-	case ReplaceDidNotFixVulnerability:
-		logger.Info("Update via replace did not fix vulnerability")
-	case ReplaceBrokeBuild:
-		logger.Info("Update via replace broke build")
+	switch bumpResult {
+	case BumpSuccess:
+		logger.Info("Bumping the vulnerable module successful")
+	case BumpDidNotFixVulnerability:
+		logger.Info("Bumping the vulnerable module did not fix vulnerability")
+	case BumpBrokeBuild:
+		logger.Info("Bumping the vulnerable module broke build")
 	}
 
 	return updateResult, nil
@@ -355,42 +355,44 @@ const (
 	ParentNotTried
 )
 
-type ReplaceResult int
+// BumpResult is the outcome of bumping the vulnerable module itself with
+// `go get <module>@<version>`. The fixer never writes a replace or exclude
+// directive: `go install <module>@<version>` refuses a module carrying one.
+type BumpResult int
 
 const (
-	ResultNoUpdateAvailable ReplaceResult = iota
-	ReplaceBrokeBuild
-	ReplaceDidNotFixVulnerability
-	ReplaceSuccess
-	ReplaceError
-	ReplaceNotTried
+	BumpBrokeBuild BumpResult = iota
+	BumpDidNotFixVulnerability
+	BumpSuccess
+	BumpError
+	BumpNotTried
 )
 
 type SanityCheckResult int
 
 type UpdateResult struct {
-	ReplaceResult ReplaceResult
-	ParentResult  ParentUpdateResult
+	BumpResult   BumpResult
+	ParentResult ParentUpdateResult
 }
 
 func makeEmptyUpdateResult() UpdateResult {
 	return UpdateResult{
-		ReplaceResult: ReplaceNotTried,
-		ParentResult:  ParentNotTried,
+		BumpResult:   BumpNotTried,
+		ParentResult: ParentNotTried,
 	}
 }
 
 type FixResult struct {
-	ReplaceResult ReplaceResult
-	ParentResult  ParentUpdateResult
-	Ignored       bool
+	BumpResult   BumpResult
+	ParentResult ParentUpdateResult
+	Ignored      bool
 }
 
 type FixReason int
 
 const (
 	ReasonNotFixed FixReason = iota
-	ReasonFixedViaReplace
+	ReasonFixedViaBump
 	ReasonFixedViaParent
 	ReasonIgnored
 )
@@ -399,8 +401,8 @@ func (r FixReason) String() string {
 	switch r {
 	case ReasonNotFixed:
 		return "not fixed"
-	case ReasonFixedViaReplace:
-		return "fixed via replace"
+	case ReasonFixedViaBump:
+		return "fixed via bump"
 	case ReasonFixedViaParent:
 		return "fixed via parent"
 	case ReasonIgnored:
@@ -413,8 +415,8 @@ func (r FixResult) getFixReason() FixReason {
 	if r.Ignored {
 		return ReasonIgnored
 	}
-	if r.ReplaceResult == ReplaceSuccess {
-		return ReasonFixedViaReplace
+	if r.BumpResult == BumpSuccess {
+		return ReasonFixedViaBump
 	}
 	if r.ParentResult == ParentSuccess {
 		return ReasonFixedViaParent
@@ -423,26 +425,26 @@ func (r FixResult) getFixReason() FixReason {
 }
 
 type FixReasonSummary struct {
-	NotFixedCount        int
-	FixedViaReplaceCount int
-	FixedViaParentCount  int
-	IgnoredCount         int
+	NotFixedCount       int
+	FixedViaBumpCount   int
+	FixedViaParentCount int
+	IgnoredCount        int
 }
 
 func makeFixReasonsummary() FixReasonSummary {
 	return FixReasonSummary{
-		NotFixedCount:        0,
-		FixedViaReplaceCount: 0,
-		FixedViaParentCount:  0,
-		IgnoredCount:         0,
+		NotFixedCount:       0,
+		FixedViaBumpCount:   0,
+		FixedViaParentCount: 0,
+		IgnoredCount:        0,
 	}
 }
 
 func (r FixReasonSummary) String() string {
 	return fmt.Sprintf(
-		"not fixed: %d, fixed via replace: %d, fixed via parent: %d, ignored: %d",
+		"not fixed: %d, fixed via bump: %d, fixed via parent: %d, ignored: %d",
 		r.NotFixedCount,
-		r.FixedViaReplaceCount,
+		r.FixedViaBumpCount,
 		r.FixedViaParentCount,
 		r.IgnoredCount,
 	)
@@ -453,8 +455,8 @@ func (r FixReasonSummary) Update(fixResult FixResult) FixReasonSummary {
 	switch fixResult.getFixReason() {
 	case ReasonNotFixed:
 		r.NotFixedCount++
-	case ReasonFixedViaReplace:
-		r.FixedViaReplaceCount++
+	case ReasonFixedViaBump:
+		r.FixedViaBumpCount++
 	case ReasonFixedViaParent:
 		r.FixedViaParentCount++
 	case ReasonIgnored:
@@ -465,45 +467,40 @@ func (r FixReasonSummary) Update(fixResult FixResult) FixReasonSummary {
 
 func makeEmptyFixResult() FixResult {
 	return FixResult{
-		ReplaceResult: ReplaceNotTried,
-		ParentResult:  ParentNotTried,
-		Ignored:       false,
+		BumpResult:   BumpNotTried,
+		ParentResult: ParentNotTried,
+		Ignored:      false,
 	}
 }
 
 func (r FixResult) injectUpdateResult(updateResult UpdateResult) FixResult {
-	r.ReplaceResult = updateResult.ReplaceResult
+	r.BumpResult = updateResult.BumpResult
 	r.ParentResult = updateResult.ParentResult
 	return r
 }
 
 func (r FixResult) isFixed() bool {
-	return r.ReplaceResult == ReplaceSuccess || r.ParentResult == ParentSuccess || r.Ignored
+	return r.BumpResult == BumpSuccess || r.ParentResult == ParentSuccess || r.Ignored
 }
 
-func updateWithReplaceAndCheck(
+func bumpAndCheck(
 	logger *pterm.Logger,
 	cwd string,
 	p nancy.VulnerablePackage,
 	newestVersion modules.SemanticVersion,
-) (ReplaceResult, error) {
-	err := modules.UpdatePackageWithReplace(
-		cwd,
-		p.Name,
-		p.Version,
-		newestVersion,
-	)
-
+) (BumpResult, error) {
+	err := modules.UpdatePackage(cwd, p.Name, newestVersion)
 	if err != nil {
-		if modules.IsGoModTidyError(err) {
-			return ReplaceBrokeBuild, nil
-		}
-		return ReplaceError, errors.Cause(err)
+		// as for a parent update, a failing go get or go mod tidy means the
+		// bump breaks the build
+		logger.Debug("Bumping the vulnerable module failed, assuming broken build",
+			logger.Args("package", p.Name, "version", newestVersion, "error", err.Error()))
+		return BumpBrokeBuild, nil
 	}
 
 	result, err := performSanityCheck(logger, cwd, p.ToPackage())
 	if err != nil {
-		return ReplaceError, errors.Cause(err)
+		return BumpError, errors.Cause(err)
 	}
 	return result, nil
 }
@@ -512,22 +509,22 @@ func performSanityCheck(
 	logger *pterm.Logger,
 	cwd string,
 	p modules.Package,
-) (result ReplaceResult, err error) {
+) (result BumpResult, err error) {
 	isFixed, err := checkVulnerabilityFixed(logger, cwd, p.Name)
 	if err != nil {
-		return ReplaceError, errors.Cause(err)
+		return BumpError, errors.Cause(err)
 	}
 	if !isFixed {
-		return ReplaceDidNotFixVulnerability, nil
+		return BumpDidNotFixVulnerability, nil
 	}
 
 	vetOk, vetErr := modules.VetSuceeds(cwd)
 	if !vetOk {
-		logger.Debug("go vet failed after replace",
+		logger.Debug("go vet failed after bump",
 			logger.Args("package", p.Name, "error", vetErr))
-		return ReplaceBrokeBuild, nil
+		return BumpBrokeBuild, nil
 	}
-	return ReplaceSuccess, nil
+	return BumpSuccess, nil
 }
 
 func checkVulnerabilityFixed(
