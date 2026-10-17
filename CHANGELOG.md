@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Push the release image to gsoci only and mirror it to the China registry in a separate `sync-china-registry` job, so a stalled China mirror no longer hangs the image publish.
+
 ## [0.11.0] - 2026-10-17
 
 ### Added
