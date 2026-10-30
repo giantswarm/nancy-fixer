@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Push the release image to gsoci only and mirror it to the China registry in a separate `sync-china-registry` job, so a stalled China mirror no longer hangs the image publish.
 
+### Changed
+
+- Scan only compiled dependencies (`go list -json -deps ./...`) again instead of the full module graph (`go list -json -m all`), reverting #232 now that the upstream nancy input size limit is resolved.
+
 ## [0.11.0] - 2026-10-17
 
 ### Added
