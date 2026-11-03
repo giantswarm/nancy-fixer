@@ -24,7 +24,7 @@ func Fix(logger *pterm.Logger, cwd string, policy nancy.IgnorePolicy) error {
 	logger.Info("Gathering vulnerable packages")
 
 	logger.Debug("Calling nancy to find vulnerabilities for path: ", logger.Args("cwd", cwd))
-	vulnerablePackages, err := nancy.GetVulnerablePackages(logger, cwd)
+	vulnerablePackages, err := getVulnerablePackages(logger, cwd)
 	if err != nil {
 		return errors.Cause(err)
 	}
@@ -87,7 +87,7 @@ func Fix(logger *pterm.Logger, cwd string, policy nancy.IgnorePolicy) error {
 
 		// refresh list of vulnerable packages, as the fix might have
 		// impacted other vulnerable packages
-		vulnerablePackages, err = nancy.GetVulnerablePackages(logger, cwd)
+		vulnerablePackages, err = getVulnerablePackages(logger, cwd)
 
 		if err != nil {
 			return errors.Cause(err)
@@ -302,9 +302,9 @@ func updateParents(
 			return ParentError, errors.Cause(err)
 		case ParentBrokeBuild:
 			return ParentBrokeBuild, nil
-		// a parent that cannot move (newest tag, or no tag at all) keeps the
-		// vulnerable version in the graph, so updating the others is pointless:
-		// stop and let the caller bump the vulnerable module itself
+		// a parent that cannot move (newest tag, or no tag at all) ends the
+		// parent step: the caller rolls the parent updates back and bumps the
+		// vulnerable module directly, so the remaining parents are not updated
 		case ParentUpdateNoUpdateAvailable:
 			return ParentUpdateNoUpdateAvailable, nil
 		case ParentSuccess:

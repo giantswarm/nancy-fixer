@@ -14,7 +14,7 @@ import (
 )
 
 // NewProxy returns an empty proxy directory and points the go command of the test
-// at it, with its own module cache and no checksum database.
+// at it, with its own module cache, no checksum database and no go env file.
 func NewProxy(t *testing.T) string {
 	t.Helper()
 
@@ -23,6 +23,8 @@ func NewProxy(t *testing.T) string {
 	if strings.ContainsAny(proxy, ",|") {
 		t.Fatalf("proxy path %s has a comma or a pipe: rename the test", proxy)
 	}
+	// a developer's go env -w GOPRIVATE or GONOPROXY must not send requests direct
+	t.Setenv("GOENV", "off")
 	t.Setenv("GOPROXY", "file://"+filepath.ToSlash(proxy))
 	t.Setenv("GOSUMDB", "off")
 	t.Setenv("GOFLAGS", "-modcacherw")

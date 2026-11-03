@@ -3,6 +3,7 @@ package modules
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strings"
 
 	"golang.org/x/mod/semver"
@@ -46,15 +47,20 @@ type Package struct {
 }
 
 // GetVersionsForPackage lists the tagged versions of name; a module with
-// pseudo-versions only has none. -mod=mod lets go look up a module of the
-// build graph that go.sum does not list yet, which -mod=readonly refuses; go
-// then adds the missing checksum to go.sum.
+// pseudo-versions only has none. go runs in an empty directory outside any
+// module: it asks the proxy without loading a build graph, so a module that
+// go.sum does not list is found and no go.mod or go.sum is written.
 func GetVersionsForPackage(name PackageName) ([]SemanticVersion, error) {
+	dir, err := os.MkdirTemp("", "nancy-fixer-versions-")
+	if err != nil {
+		return nil, fmt.Errorf("create directory to list versions for %s: %w", name, err)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
 	stdout, err := gocli.CallGoNoBuffer(
-		gocli.GoConfig{},
+		gocli.GoConfig{Cwd: dir},
 		"list",
 		"-m",
-		"-mod=mod",
 		"-versions",
 		string(name),
 	)
@@ -95,10 +101,10 @@ func GetNewestVersion(name PackageName) (SemanticVersion, error) {
 		return "", fmt.Errorf("get newest version for %s: %w", name, err)
 	}
 
+	versions = RemovePreReleaseVersions(versions)
 	if len(versions) == 0 {
 		return "", fmt.Errorf("no versions found for %s: %w", name, noVersionsFoundError)
 	}
-	versions = RemovePreReleaseVersions(versions)
 
 	stringSemVers := SemVersToStrings(versions)
 	semver.Sort(stringSemVers)
