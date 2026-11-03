@@ -3,11 +3,10 @@ package modules
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"golang.org/x/mod/modfile"
-	"golang.org/x/mod/module"
-	"golang.org/x/mod/zip"
+	"github.com/giantswarm/nancy-fixer/internal/gomodtest"
 )
 
 // TestUpdatePackageNeverAddsReplaceOrExclude bumps a vulnerable indirect
@@ -15,33 +14,27 @@ import (
 // required version and must not write a replace or exclude directive, which
 // `go install <module>@<version>` refuses.
 func TestUpdatePackageNeverAddsReplaceOrExclude(t *testing.T) {
-	proxy := t.TempDir()
-	writeProxyModule(t, proxy, "example.com/vuln", "v1.0.0", "module example.com/vuln\n\ngo 1.21\n", map[string]string{
+	proxy := gomodtest.NewProxy(t)
+	gomodtest.WriteModule(t, proxy, "example.com/vuln", "v1.0.0", "module example.com/vuln\n\ngo 1.21\n", map[string]string{
 		"vuln.go": "package vuln\n\nfunc Version() string { return \"v1.0.0\" }\n",
 	})
-	writeProxyModule(t, proxy, "example.com/vuln", "v1.1.0", "module example.com/vuln\n\ngo 1.21\n", map[string]string{
+	gomodtest.WriteModule(t, proxy, "example.com/vuln", "v1.1.0", "module example.com/vuln\n\ngo 1.21\n", map[string]string{
 		"vuln.go": "package vuln\n\nfunc Version() string { return \"v1.1.0\" }\n",
 	})
-	writeProxyModule(t, proxy, "example.com/parent", "v1.0.0", "module example.com/parent\n\ngo 1.21\n\nrequire example.com/vuln v1.0.0\n", map[string]string{
+	gomodtest.WriteModule(t, proxy, "example.com/parent", "v1.0.0", "module example.com/parent\n\ngo 1.21\n\nrequire example.com/vuln v1.0.0\n", map[string]string{
 		"parent.go": "package parent\n\nimport \"example.com/vuln\"\n\nfunc Version() string { return vuln.Version() }\n",
 	})
 
-	t.Setenv("GOPROXY", "file://"+filepath.ToSlash(proxy))
-	t.Setenv("GOSUMDB", "off")
-	t.Setenv("GOFLAGS", "-modcacherw")
-	t.Setenv("GOMODCACHE", t.TempDir())
-	t.Setenv("GOWORK", "off")
-
 	cwd := t.TempDir()
-	writeFile(t, filepath.Join(cwd, "go.mod"), "module example.com/app\n\ngo 1.21\n\nrequire example.com/parent v1.0.0\n\nrequire example.com/vuln v1.0.0 // indirect\n")
-	writeFile(t, filepath.Join(cwd, "main.go"), "package main\n\nimport \"example.com/parent\"\n\nfunc main() { println(parent.Version()) }\n")
+	gomodtest.WriteFile(t, filepath.Join(cwd, "go.mod"), "module example.com/app\n\ngo 1.21\n\nrequire example.com/parent v1.0.0\n\nrequire example.com/vuln v1.0.0 // indirect\n")
+	gomodtest.WriteFile(t, filepath.Join(cwd, "main.go"), "package main\n\nimport \"example.com/parent\"\n\nfunc main() { println(parent.Version()) }\n")
 	// GetNewestVersion runs go in the working directory, as the fixer does
 	t.Chdir(cwd)
 	// a repository under remediation has a complete go.sum
 	if err := runGo(cwd, "mod", "tidy"); err != nil {
 		t.Fatalf("tidy the module under test: %v", err)
 	}
-	if got := readGoMod(t, cwd).Require; len(got) != 2 || got[1].Mod.Version != "v1.0.0" {
+	if got := gomodtest.ReadGoMod(t, cwd).Require; len(got) != 2 || got[1].Mod.Version != "v1.0.0" {
 		t.Fatalf("expected the module under test to require example.com/vuln v1.0.0, got %v", got)
 	}
 
@@ -63,7 +56,7 @@ func TestUpdatePackageNeverAddsReplaceOrExclude(t *testing.T) {
 		t.Fatalf("update package: %v", err)
 	}
 
-	goMod := readGoMod(t, cwd)
+	goMod := gomodtest.ReadGoMod(t, cwd)
 	for _, r := range goMod.Replace {
 		t.Errorf("go.mod carries replace %s => %s", r.Old, r.New)
 	}
@@ -85,66 +78,96 @@ func TestUpdatePackageNeverAddsReplaceOrExclude(t *testing.T) {
 	}
 }
 
-func writeProxyModule(t *testing.T, proxy, path, version, goMod string, files map[string]string) {
-	t.Helper()
+const (
+	pseudoVersion = "v0.0.0-20260101000000-abcdefabcdef"
+	vulnOld       = "v1.0.0"
+	vulnNew       = "v1.1.0"
+)
 
-	src := t.TempDir()
-	writeFile(t, filepath.Join(src, "go.mod"), goMod)
-	for name, content := range files {
-		writeFile(t, filepath.Join(src, name), content)
-	}
+// TestGetNewestVersionWithoutTaggedVersion covers a fork pinned at a
+// pseudo-version: the proxy lists no version for it, and the caller must be
+// able to tell that from a failing lookup.
+func TestGetNewestVersionWithoutTaggedVersion(t *testing.T) {
+	proxy := gomodtest.NewProxy(t)
+	gomodtest.WriteModule(t, proxy, "example.com/fork", pseudoVersion, "module example.com/fork\n\ngo 1.21\n", map[string]string{
+		"fork.go": "package fork\n\nfunc Name() string { return \"fork\" }\n",
+	})
 
-	escaped, err := module.EscapePath(path)
-	if err != nil {
-		t.Fatalf("escape %s: %v", path, err)
-	}
-	dir := filepath.Join(proxy, filepath.FromSlash(escaped), "@v")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("create %s: %v", dir, err)
-	}
-
-	writeFile(t, filepath.Join(dir, version+".mod"), goMod)
-	writeFile(t, filepath.Join(dir, version+".info"), `{"Version":"`+version+`","Time":"2026-01-01T00:00:00Z"}`)
-
-	z, err := os.Create(filepath.Join(dir, version+".zip"))
-	if err != nil {
-		t.Fatalf("create zip: %v", err)
-	}
-	defer z.Close()
-	err = zip.CreateFromDir(z, module.Version{Path: path, Version: version}, src)
-	if err != nil {
-		t.Fatalf("zip %s@%s: %v", path, version, err)
+	cwd := t.TempDir()
+	gomodtest.WriteFile(t, filepath.Join(cwd, "go.mod"), "module example.com/app\n\ngo 1.21\n\nrequire example.com/fork "+pseudoVersion+"\n")
+	gomodtest.WriteFile(t, filepath.Join(cwd, "main.go"), "package main\n\nimport \"example.com/fork\"\n\nfunc main() { println(fork.Name()) }\n")
+	t.Chdir(cwd)
+	if err := runGo(cwd, "mod", "tidy"); err != nil {
+		t.Fatalf("tidy the module under test: %v", err)
 	}
 
-	list, err := os.OpenFile(filepath.Join(dir, "list"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		t.Fatalf("open version list: %v", err)
-	}
-	defer list.Close()
-	if _, err := list.WriteString(version + "\n"); err != nil {
-		t.Fatalf("write version list: %v", err)
+	_, err := GetNewestVersion("example.com/fork")
+	if !IsNoVersionsFoundError(err) {
+		t.Fatalf("expected no versions found, got %v", err)
 	}
 }
 
-func readGoMod(t *testing.T, cwd string) *modfile.File {
-	t.Helper()
+// TestGetVersionsForPackageMissingFromGoSum lists the versions of a module
+// that is in the build graph but not in go.sum, which go refuses to look up
+// under -mod=readonly. The parent predates module graph pruning (go 1.16), so
+// go needs the go.mod checksum of its requirement.
+func TestGetVersionsForPackageMissingFromGoSum(t *testing.T) {
+	proxy := gomodtest.NewProxy(t)
+	gomodtest.WriteModule(t, proxy, "example.com/vuln", vulnOld, "module example.com/vuln\n\ngo 1.21\n", nil)
+	gomodtest.WriteModule(t, proxy, "example.com/vuln", vulnNew, "module example.com/vuln\n\ngo 1.21\n", nil)
+	gomodtest.WriteModule(t, proxy, "example.com/parent", "v1.2.0", "module example.com/parent\n\ngo 1.16\n\nrequire example.com/vuln v1.0.0\n", map[string]string{
+		"parent.go": "package parent\n\nfunc Name() string { return \"parent\" }\n",
+	})
 
-	path := filepath.Join(cwd, "go.mod")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read go.mod: %v", err)
+	cwd := t.TempDir()
+	gomodtest.WriteFile(t, filepath.Join(cwd, "go.mod"), "module example.com/app\n\ngo 1.21\n\nrequire example.com/parent v1.2.0\n")
+	gomodtest.WriteFile(t, filepath.Join(cwd, "main.go"), "package main\n\nimport \"example.com/parent\"\n\nfunc main() { println(parent.Name()) }\n")
+	t.Chdir(cwd)
+	if err := runGo(cwd, "mod", "tidy"); err != nil {
+		t.Fatalf("tidy the module under test: %v", err)
 	}
-	goMod, err := modfile.Parse(path, data, nil)
-	if err != nil {
-		t.Fatalf("parse go.mod: %v", err)
+	removeGoSumLines(t, cwd, "example.com/vuln ")
+	if err := runGo(cwd, "list", "-m", "-versions", "example.com/vuln"); err == nil {
+		t.Fatal("expected go list -mod=readonly to refuse a module missing from go.sum")
 	}
-	return goMod
+
+	versions, err := GetVersionsForPackage("example.com/vuln")
+	if err != nil {
+		t.Fatalf("list versions: %v", err)
+	}
+	if len(versions) != 2 || versions[0] != vulnOld || versions[1] != vulnNew {
+		t.Fatalf("expected v1.0.0 and v1.1.0, got %v", versions)
+	}
 }
 
-func writeFile(t *testing.T, path, content string) {
+// TestGetNewestVersionUnknownModule keeps a failing lookup an error: only an
+// empty version list means "no tagged version".
+func TestGetNewestVersionUnknownModule(t *testing.T) {
+	gomodtest.NewProxy(t)
+
+	cwd := t.TempDir()
+	gomodtest.WriteFile(t, filepath.Join(cwd, "go.mod"), "module example.com/app\n\ngo 1.21\n")
+	t.Chdir(cwd)
+
+	_, err := GetNewestVersion("example.com/missing")
+	if err == nil || IsNoVersionsFoundError(err) {
+		t.Fatalf("expected the lookup to fail, got %v", err)
+	}
+}
+
+func removeGoSumLines(t *testing.T, cwd, prefix string) {
 	t.Helper()
 
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
+	path := filepath.Join(cwd, "go.sum")
+	data, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		t.Fatalf("read go.sum: %v", err)
 	}
+	var kept []string
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(line, prefix) {
+			kept = append(kept, line)
+		}
+	}
+	gomodtest.WriteFile(t, path, strings.Join(kept, "\n"))
 }

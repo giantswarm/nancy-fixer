@@ -45,11 +45,16 @@ type Package struct {
 	Version SemanticVersion
 }
 
+// GetVersionsForPackage lists the tagged versions of name; a module with
+// pseudo-versions only has none. -mod=mod lets go look up a module of the
+// build graph that go.sum does not list yet, which -mod=readonly refuses; go
+// then adds the missing checksum to go.sum.
 func GetVersionsForPackage(name PackageName) ([]SemanticVersion, error) {
 	stdout, err := gocli.CallGoNoBuffer(
 		gocli.GoConfig{},
 		"list",
 		"-m",
+		"-mod=mod",
 		"-versions",
 		string(name),
 	)
