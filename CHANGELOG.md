@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Push the release image to gsoci only and mirror it to the China registry in a separate `sync-china-registry` job, so a stalled China mirror no longer hangs the image publish.
+- A vulnerable module whose parent has no tagged version (a fork pinned by `replace` at a pseudo-version) is now bumped, or ignored when the bump does not fix it, instead of failing with "no versions found". A vulnerable module without a tagged version is ignored.
+- The version lookup works for a module that is in the build graph but not in `go.sum`, instead of failing with "updates to go.sum needed". It no longer depends on the working directory and writes no `go.mod` or `go.sum`.
+- A module with pre-release tags only no longer crashes the run; it counts as a module without a tagged version.
 
 ### Changed
 

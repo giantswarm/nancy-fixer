@@ -17,11 +17,14 @@ import (
 
 const DefaultNancyIgnorePath = ".nancy-ignore"
 
+// getVulnerablePackages runs nancy; tests replace it to fake the scan.
+var getVulnerablePackages = nancy.GetVulnerablePackages
+
 func Fix(logger *pterm.Logger, cwd string, policy nancy.IgnorePolicy) error {
 	logger.Info("Gathering vulnerable packages")
 
 	logger.Debug("Calling nancy to find vulnerabilities for path: ", logger.Args("cwd", cwd))
-	vulnerablePackages, err := nancy.GetVulnerablePackages(logger, cwd)
+	vulnerablePackages, err := getVulnerablePackages(logger, cwd)
 	if err != nil {
 		return errors.Cause(err)
 	}
@@ -84,7 +87,7 @@ func Fix(logger *pterm.Logger, cwd string, policy nancy.IgnorePolicy) error {
 
 		// refresh list of vulnerable packages, as the fix might have
 		// impacted other vulnerable packages
-		vulnerablePackages, err = nancy.GetVulnerablePackages(logger, cwd)
+		vulnerablePackages, err = getVulnerablePackages(logger, cwd)
 
 		if err != nil {
 			return errors.Cause(err)
@@ -115,7 +118,7 @@ func FixVulnerablePackage(
 		return fixResult, nil, errors.Cause(err)
 	}
 
-	newestVersion, updateAvailable, err := checkUpdateAvailable(p.ToPackage())
+	newestVersion, updateAvailable, err := checkUpdateAvailable(logger, p.ToPackage())
 	if err != nil {
 		return fixResult, nil, errors.Cause(err)
 	}
@@ -167,10 +170,21 @@ func FixVulnerablePackage(
 	return fixResult, overdue, nil
 }
 
+// checkUpdateAvailable reports no update for a module without a tagged
+// version, such as a fork pinned by a replace at a pseudo-version: there is
+// nothing to update it to, so the fix goes on with the next step.
 func checkUpdateAvailable(
+	logger *pterm.Logger,
 	p modules.Package,
 ) (newestVersion modules.SemanticVersion, updateAvailable bool, err error) {
 	newestVersion, err = modules.GetNewestVersion(p.Name)
+	if modules.IsNoVersionsFoundError(err) {
+		logger.Info(
+			"No tagged version, pseudo-version pin ",
+			logger.Args("module", p.Name, "version", p.Version),
+		)
+		return newestVersion, false, nil
+	}
 	if err != nil {
 		return newestVersion, false, errors.Cause(err)
 	}
@@ -288,6 +302,9 @@ func updateParents(
 			return ParentError, errors.Cause(err)
 		case ParentBrokeBuild:
 			return ParentBrokeBuild, nil
+		// a parent that cannot move (newest tag, or no tag at all) ends the
+		// parent step: the caller rolls the parent updates back and bumps the
+		// vulnerable module directly, so the remaining parents are not updated
 		case ParentUpdateNoUpdateAvailable:
 			return ParentUpdateNoUpdateAvailable, nil
 		case ParentSuccess:
@@ -308,7 +325,7 @@ func updateParentAndCheck(
 		"Checking updates for parent package ",
 		logger.Args("parent", parent.Name, "version", parent.Version),
 	)
-	newestVersion, updateAvailable, err := checkUpdateAvailable(parent)
+	newestVersion, updateAvailable, err := checkUpdateAvailable(logger, parent)
 
 	if err != nil {
 		return ParentError, errors.Cause(err)
@@ -532,7 +549,7 @@ func checkVulnerabilityFixed(
 	cwd string,
 	name modules.PackageName,
 ) (bool, error) {
-	newVulnerablePackages, err := nancy.GetVulnerablePackages(logger, cwd)
+	newVulnerablePackages, err := getVulnerablePackages(logger, cwd)
 	if err != nil {
 		return false, errors.Cause(err)
 	}
