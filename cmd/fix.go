@@ -53,7 +53,7 @@ var fixCmd = &cobra.Command{
 			// Check if this is a nancy parsing error - if so, silence usage
 			// This is to avoid displaying 2 usages at once which is confusing,
 			// Otherwise we get both nancy and nancy-fixer usages displayed.
-			if errors.Is(err, nancy.ErrNancyParsingFailed) {
+			if errors.Is(err, nancy.ErrNancyParsingFailed) || errors.Is(err, nancy.ErrNancyFailed) {
 				cmd.SilenceUsage = true
 			}
 			return err

@@ -17,6 +17,11 @@ import (
 
 var ErrNancyParsingFailed = errors.New("failed to parse nancy output")
 
+// ErrNancyFailed is returned when nancy exits non-zero and writes no report,
+// which is how it ends a scan it could not run, for example on an HTTP error
+// from the vulnerability API.
+var ErrNancyFailed = errors.New("nancy failed without writing a report")
+
 type VulnerablePackageJSON struct {
 	Coordinates     string `json:"Coordinates"`
 	Reference       string `json:"Reference"`
@@ -174,11 +179,14 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 	err = nancyCmd.Wait()
 	if err != nil {
 		logger.Debug("Failed waiting for nancy command", logger.Args("error", err, "stderr", nancyStdErr.String()))
-		if castedError, ok := err.(*exec.ExitError); ok {
-			logger.Debug("Error as *exec.ExitError", logger.Args("error", castedError))
-			// Nancy returns inconistent and unexpected exit codes.
-		} else {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
 			return NancySleuthOutputJSON{}, fmt.Errorf("wait for nancy command: %w", err)
+		}
+		// nancy also exits non-zero when it finds a vulnerability, and then
+		// its report is on stdout.
+		if len(bytes.TrimSpace(out.Bytes())) == 0 {
+			return NancySleuthOutputJSON{}, fmt.Errorf("%w: exit code %d: %s", ErrNancyFailed, exitErr.ExitCode(), strings.TrimSpace(nancyStdErr.String()))
 		}
 	}
 
