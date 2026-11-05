@@ -15,7 +15,7 @@ import (
 func fakeTools(t *testing.T, script string) {
 	t.Helper()
 	bin := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(bin, "go"), []byte("#!/bin/sh\nexit 0\n"), 0o755))     //nolint:gosec // a test executable
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "go"), []byte("#!/bin/sh\nexit 0\n"), 0o755))   //nolint:gosec // a test executable
 	require.NoError(t, os.WriteFile(filepath.Join(bin, "nancy"), []byte("#!/bin/sh\n"+script), 0o755)) //nolint:gosec // a test executable
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
