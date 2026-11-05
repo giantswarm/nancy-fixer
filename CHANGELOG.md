@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- When nancy exits non-zero without writing a report, `fix` fails with nancy's exit code and stderr instead of "failed to parse nancy output".
+
 ## [0.12.0] - 2026-11-04
 
 ### Fixed
