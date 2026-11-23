@@ -159,3 +159,21 @@ func logOverdueIgnoresJSON(
 		}))
 	}
 }
+
+func LogRemovedIgnores(logger *pterm.Logger, removed []string) {
+	if len(removed) == 0 {
+		return
+	}
+
+	switch logger.Formatter {
+	case pterm.LogFormatterColorful:
+		pterm.Info.Println("Removed ignore entries that no scanned vulnerability matched:")
+		for _, line := range removed {
+			pterm.Println("  " + line)
+		}
+	case pterm.LogFormatterJSON:
+		for _, line := range removed {
+			logger.Info("removed ignore entry", logger.Args("entry", line))
+		}
+	}
+}

@@ -164,6 +164,12 @@ func TestUpdateNancyIgnoreLines(t *testing.T) {
 			vulnerabilities: []Vulnerability{},
 			expected:        []string{},
 		},
+		{
+			name:            "comment and blank lines are kept",
+			lines:           []string{"# grpc: no newer release", "", unexpiredOther},
+			vulnerabilities: []Vulnerability{},
+			expected:        []string{"# grpc: no newer release", "", unexpiredOther},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -272,4 +278,131 @@ func TestIgnoreVulnerabilities(t *testing.T) {
 	content, err = os.ReadFile(path)
 	require.NoError(t, err)
 	require.Equal(t, fresh("CVE-2022-29153", day(-200))+"\n", string(content))
+}
+
+func TestIgnoreVulnerabilitiesKeepsALastLineWithoutNewline(t *testing.T) {
+	p := testPackage(t)
+	path := filepath.Join(t.TempDir(), ".nancy-ignore")
+	other := fmt.Sprintf("CVE-2021-00001 until=%s # github.com/baz/qux@v1.0.0 since=%s", day(3), day(-1))
+	require.NoError(t, os.WriteFile(path, []byte(other), 0o600))
+
+	_, err := IgnoreVulnerabilities([]Vulnerability{{ID: "CVE-2022-29153"}}, p, path, IgnorePolicy{})
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Clean(path))
+	require.NoError(t, err)
+	require.Equal(t, other+"\n"+fresh("CVE-2022-29153", day(0))+"\n", string(content))
+}
+
+func TestPruneIgnoreLines(t *testing.T) {
+	matchedEntry := fmt.Sprintf("CVE-2022-29153 until=%s # github.com/foo/bar@v1.0.0 since=%s", day(3), day(-10))
+	unmatchedEntry := fmt.Sprintf("CVE-2021-00001 until=%s # github.com/baz/qux@v1.0.0 since=%s", day(3), day(-10))
+	expiredEntry := fmt.Sprintf("CVE-2022-29153 until=%s # github.com/foo/bar@v1.0.0 since=%s", day(-1), day(-40))
+
+	testCases := []struct {
+		name            string
+		lines           []string
+		matched         map[string]bool
+		expectedKept    []string
+		expectedRemoved []string
+	}{
+		{
+			name:         "entry the scan matched is kept",
+			lines:        []string{matchedEntry},
+			matched:      map[string]bool{"CVE-2022-29153": true},
+			expectedKept: []string{matchedEntry},
+		},
+		{
+			name:            "unexpired entry the scan did not match is removed",
+			lines:           []string{matchedEntry, unmatchedEntry},
+			matched:         map[string]bool{"CVE-2022-29153": true},
+			expectedKept:    []string{matchedEntry},
+			expectedRemoved: []string{unmatchedEntry},
+		},
+		{
+			name:            "expired entry is removed",
+			lines:           []string{expiredEntry},
+			matched:         map[string]bool{"CVE-2022-29153": true},
+			expectedKept:    []string{},
+			expectedRemoved: []string{expiredEntry},
+		},
+		{
+			name:            "entry without an expiration date is removed",
+			lines:           []string{"CVE-2022-29153 # not applicable"},
+			matched:         map[string]bool{"CVE-2022-29153": true},
+			expectedKept:    []string{},
+			expectedRemoved: []string{"CVE-2022-29153 # not applicable"},
+		},
+		{
+			name:            "comment and blank lines are kept",
+			lines:           []string{"# mongo-driver v1: no fixed v1 release", "", "  # indented", unmatchedEntry},
+			matched:         map[string]bool{},
+			expectedKept:    []string{"# mongo-driver v1: no fixed v1 release", "", "  # indented"},
+			expectedRemoved: []string{unmatchedEntry},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			kept, removed := pruneIgnoreLines(tc.lines, tc.matched)
+			require.Equal(t, tc.expectedKept, kept)
+			require.Equal(t, tc.expectedRemoved, removed)
+		})
+	}
+}
+
+func TestPruneIgnores(t *testing.T) {
+	matchedEntry := fmt.Sprintf("CVE-2022-29153 until=%s # github.com/foo/bar@v1.0.0 since=%s", day(3), day(-10))
+	unmatchedEntry := fmt.Sprintf("CVE-2021-00001 until=%s # github.com/baz/qux@v1.0.0 since=%s", day(3), day(-10))
+	content := "# kept\n" + matchedEntry + "\n" + unmatchedEntry + "\n"
+	scan := ScanResult{Matched: map[string]bool{"CVE-2022-29153": true}, Audited: 12}
+
+	t.Run("removes the entries the scan did not match", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), ".nancy-ignore")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+		removed, err := PruneIgnores(path, scan)
+		require.NoError(t, err)
+		require.Equal(t, []string{unmatchedEntry}, removed)
+
+		got, err := os.ReadFile(filepath.Clean(path))
+		require.NoError(t, err)
+		require.Equal(t, "# kept\n"+matchedEntry+"\n", string(got))
+	})
+
+	t.Run("scan that audited nothing leaves the file unchanged", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), ".nancy-ignore")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+		removed, err := PruneIgnores(path, ScanResult{Matched: map[string]bool{}})
+		require.NoError(t, err)
+		require.Empty(t, removed)
+
+		got, err := os.ReadFile(filepath.Clean(path))
+		require.NoError(t, err)
+		require.Equal(t, content, string(got))
+	})
+
+	t.Run("file with nothing to remove is not rewritten", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), ".nancy-ignore")
+		untouched := "# no trailing newline\n" + matchedEntry
+		require.NoError(t, os.WriteFile(path, []byte(untouched), 0o600))
+
+		removed, err := PruneIgnores(path, scan)
+		require.NoError(t, err)
+		require.Empty(t, removed)
+
+		got, err := os.ReadFile(filepath.Clean(path))
+		require.NoError(t, err)
+		require.Equal(t, untouched, string(got))
+	})
+
+	t.Run("missing file is not created", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), ".nancy-ignore")
+
+		removed, err := PruneIgnores(path, scan)
+		require.NoError(t, err)
+		require.Empty(t, removed)
+		require.NoFileExists(t, path)
+	})
 }

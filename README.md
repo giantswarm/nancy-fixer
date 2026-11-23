@@ -29,6 +29,10 @@ CVE-2022-29153 until=2026-10-17 # github.com/foo/bar@v1.2.3 since=2026-03-04
 
 A later run keeps `since=` and moves `until=` forward.
 
+At the end of each run, `nancy-fixer` removes the `.nancy-ignore` entries the final scan did not match: expired entries, entries without `until=`, and entries for a vulnerability no scanned package has any more. Comment and blank lines are kept, and `.nancy-ignore.generated` is never changed. A scan that audited no package leaves the file as it is.
+
+Packages are listed with `CGO_ENABLED=0 go list -json -deps ./...`, the selection of the CI scan, so an entry CI still needs is matched here too.
+
 To list the entries that have been renewed for longer than 90 days use:
 ```
 nancy-fixer fix --report-overdue-ignores
@@ -36,7 +40,7 @@ nancy-fixer fix --report-overdue-ignores
 
 To use a different age use `--max-ignore-age-days`. The report does not change the exit code of the run.
 
-## Steps 
+## Steps
 For each vulnerability, `nancy-fixer` will try three steps:
 1. Update all dependencies that require the vulnerable package (in the case of a direct dependency this could be simply the vulnerable package itself)
 2. Bump the vulnerable package itself with `go get <package>@<newest version>`, and keep the bump only when it fixes the vulnerability and `go vet ./...` passes.
@@ -49,7 +53,7 @@ For each vulnerability, `nancy-fixer` will try three steps:
 ### Major Versions
 Currently, `nancy-fixer` is not aware of different module names for different major versions.
 For example, say you have the dependency `github.com/my/mod/v4` with version
-`v4.1.0`, but there is a version `v5.0.0` available. This would require you to 
+`v4.1.0`, but there is a version `v5.0.0` available. This would require you to
 change the imported module to `github.com/my/mod/v5`.
 However, `nancy-fixer` will never try that.
 

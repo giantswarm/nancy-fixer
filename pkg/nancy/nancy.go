@@ -38,6 +38,13 @@ type VulnerablePackageJSON struct {
 	InvalidSemVer bool `json:"InvalidSemVer"`
 }
 
+// ExcludedVulnerabilityJSON is a vulnerability of a scanned package that an
+// exclusion matched, by its ID or its CVE.
+type ExcludedVulnerabilityJSON struct {
+	ID  string `json:"ID"`
+	Cve string `json:"Cve"`
+}
+
 type NancySleuthOutputJSON struct {
 	Audited []struct {
 		Coordinates     string `json:"Coordinates"`
@@ -45,14 +52,14 @@ type NancySleuthOutputJSON struct {
 		Vulnerabilities any    `json:"Vulnerabilities"`
 		InvalidSemVer   bool   `json:"InvalidSemVer"`
 	} `json:"audited"`
-	Excluded      []VulnerablePackageJSON `json:"excluded"`
-	Exclusions    []string                `json:"exclusions"`
-	Invalid       []any                   `json:"invalid"`
-	NumAudited    int                     `json:"num_audited"`
-	NumExclusions int                     `json:"num_exclusions"`
-	NumVulnerable int                     `json:"num_vulnerable"`
-	Version       string                  `json:"version"`
-	Vulnerable    []VulnerablePackageJSON `json:"vulnerable"`
+	Excluded      []ExcludedVulnerabilityJSON `json:"excluded"`
+	Exclusions    []string                    `json:"exclusions"`
+	Invalid       []any                       `json:"invalid"`
+	NumAudited    int                         `json:"num_audited"`
+	NumExclusions int                         `json:"num_exclusions"`
+	NumVulnerable int                         `json:"num_vulnerable"`
+	Version       string                      `json:"version"`
+	Vulnerable    []VulnerablePackageJSON     `json:"vulnerable"`
 }
 
 type Vulnerability struct {
@@ -92,20 +99,43 @@ func VulnerablePackagesContain(packages []VulnerablePackage, name modules.Packag
 	return false
 }
 
-func GetVulnerablePackages(logger *pterm.Logger, dir string) ([]VulnerablePackage, error) {
+// ScanResult is the outcome of one nancy run.
+type ScanResult struct {
+	Vulnerable []VulnerablePackage
+	// Matched holds the ID and the CVE of each vulnerability an exclusion
+	// matched.
+	Matched map[string]bool
+	// Audited is the number of packages nancy scanned.
+	Audited int
+}
+
+func Scan(logger *pterm.Logger, dir string) (ScanResult, error) {
 	logger.Debug("Running nancy sleuth...")
 	nancyOutput, err := RunSleuth(logger, dir)
 	if err != nil {
-		return nil, fmt.Errorf("run nancy sleuth: %w", err)
+		return ScanResult{}, fmt.Errorf("run nancy sleuth: %w", err)
 	}
 
 	logger.Debug("Extracting vulnerable packages")
 	vulnerablePackages, err := extractVulnerablePackages(nancyOutput)
 	if err != nil {
-		return nil, fmt.Errorf("extract vulnerable packages: %w", err)
+		return ScanResult{}, fmt.Errorf("extract vulnerable packages: %w", err)
 	}
 
-	return vulnerablePackages, nil
+	matched := map[string]bool{}
+	for _, v := range nancyOutput.Excluded {
+		for _, id := range []string{v.ID, v.Cve} {
+			if id != "" {
+				matched[id] = true
+			}
+		}
+	}
+
+	return ScanResult{
+		Vulnerable: vulnerablePackages,
+		Matched:    matched,
+		Audited:    nancyOutput.NumAudited,
+	}, nil
 }
 
 func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) {
@@ -129,7 +159,9 @@ func RunSleuth(logger *pterm.Logger, dir string) (NancySleuthOutputJSON, error) 
 		Stderr: &goStdErr,
 		// Override GOTOOLCHAIN so Go can switch to the version required by the
 		// target repo's go.mod, even when the parent process has GOTOOLCHAIN=local.
-		Env: append(os.Environ(), "GOTOOLCHAIN=auto"),
+		// CGO_ENABLED=0 selects the packages the CI scan of `make nancy` selects,
+		// so the exclusions that match here are the ones CI needs.
+		Env: append(os.Environ(), "GOTOOLCHAIN=auto", "CGO_ENABLED=0"),
 	}
 
 	var out bytes.Buffer

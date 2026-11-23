@@ -54,26 +54,15 @@ func IgnoreVulnerabilities(
 	nancyIgnorePath string,
 	policy IgnorePolicy,
 ) ([]OverdueIgnore, error) {
-	file, err := os.ReadFile(filepath.Clean(nancyIgnorePath))
+	lines, err := readIgnoreLines(nancyIgnorePath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			file = []byte{}
-		} else {
-			return nil, fmt.Errorf("read nancy ignore file: %w", err)
-		}
+		return nil, err
 	}
-	lines := strings.Split(string(file), "\n")
-	lines = lines[:len(lines)-1]
 
 	lines, overdue := updateNancyIgnoreLines(lines, vulnerabilities, p, policy)
 
-	lines = append(lines, "")
-
-	newFile := strings.Join(lines, "\n")
-	// #nosec G306
-	err = os.WriteFile(nancyIgnorePath, []byte(newFile), 0640)
-	if err != nil {
-		return nil, fmt.Errorf("write nancy ignore file: %w", err)
+	if err := writeIgnoreLines(nancyIgnorePath, lines); err != nil {
+		return nil, err
 	}
 
 	return overdue, nil
@@ -95,6 +84,11 @@ func updateNancyIgnoreLines(
 	newLines := []string{}
 	overdue := []OverdueIgnore{}
 	for _, line := range lines {
+
+		if isComment(line) {
+			newLines = append(newLines, line)
+			continue
+		}
 
 		entry, ok := parseIgnoreEntry(line)
 		if !ok {
@@ -129,6 +123,92 @@ func updateNancyIgnoreLines(
 	}
 
 	return newLines, overdue
+}
+
+// PruneIgnores removes the entries of the ignore file at path that the scan
+// did not match: expired entries, entries without an expiration date and
+// entries whose vulnerability no scanned package has any more. Comment and
+// blank lines are kept. A scan that audited no package matches nothing and
+// leaves the file unchanged, as does a missing file. It returns the removed
+// lines.
+func PruneIgnores(path string, scan ScanResult) ([]string, error) {
+	if scan.Audited == 0 {
+		return nil, nil
+	}
+
+	lines, err := readIgnoreLines(path)
+	if err != nil {
+		return nil, err
+	}
+
+	kept, removed := pruneIgnoreLines(lines, scan.Matched)
+	if len(removed) == 0 {
+		return nil, nil
+	}
+
+	if err := writeIgnoreLines(path, kept); err != nil {
+		return nil, err
+	}
+
+	return removed, nil
+}
+
+func pruneIgnoreLines(lines []string, matched map[string]bool) (kept []string, removed []string) {
+	kept = []string{}
+	for _, line := range lines {
+		if isComment(line) {
+			kept = append(kept, line)
+			continue
+		}
+
+		entry, ok := parseIgnoreEntry(line)
+		if !ok || isExpired(entry.until) || !matched[entry.cve] {
+			removed = append(removed, line)
+			continue
+		}
+		kept = append(kept, line)
+	}
+
+	return kept, removed
+}
+
+// isComment reports a line nancy reads no exclusion from: everything after
+// '#' is a comment.
+func isComment(line string) bool {
+	content, _, _ := strings.Cut(line, "#")
+	return strings.TrimSpace(content) == ""
+}
+
+// readIgnoreLines returns no lines for a missing file.
+func readIgnoreLines(path string) ([]string, error) {
+	file, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("read nancy ignore file: %w", err)
+	}
+
+	content := strings.TrimSuffix(string(file), "\n")
+	if content == "" {
+		return []string{}, nil
+	}
+
+	return strings.Split(content, "\n"), nil
+}
+
+func writeIgnoreLines(path string, lines []string) error {
+	content := ""
+	if len(lines) > 0 {
+		content = strings.Join(lines, "\n") + "\n"
+	}
+
+	// #nosec G306
+	if err := os.WriteFile(path, []byte(content), 0640); err != nil {
+		return fmt.Errorf("write nancy ignore file: %w", err)
+	}
+
+	return nil
 }
 
 // checkOverdue reports a renewed entry whose first ignore date is older than
