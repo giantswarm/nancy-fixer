@@ -17,17 +17,18 @@ import (
 
 const DefaultNancyIgnorePath = ".nancy-ignore"
 
-// getVulnerablePackages runs nancy; tests replace it to fake the scan.
-var getVulnerablePackages = nancy.GetVulnerablePackages
+// scan runs nancy; tests replace it to fake the scan.
+var scan = nancy.Scan
 
 func Fix(logger *pterm.Logger, cwd string, policy nancy.IgnorePolicy) error {
 	logger.Info("Gathering vulnerable packages")
 
 	logger.Debug("Calling nancy to find vulnerabilities for path: ", logger.Args("cwd", cwd))
-	vulnerablePackages, err := getVulnerablePackages(logger, cwd)
+	result, err := scan(logger, cwd)
 	if err != nil {
 		return errors.Cause(err)
 	}
+	vulnerablePackages := result.Vulnerable
 
 	logger.Info(fmt.Sprintf("Found %d vulnerable packages", len(vulnerablePackages)))
 
@@ -87,19 +88,27 @@ func Fix(logger *pterm.Logger, cwd string, policy nancy.IgnorePolicy) error {
 
 		// refresh list of vulnerable packages, as the fix might have
 		// impacted other vulnerable packages
-		vulnerablePackages, err = getVulnerablePackages(logger, cwd)
-
+		result, err = scan(logger, cwd)
 		if err != nil {
 			return errors.Cause(err)
 		}
+		vulnerablePackages = result.Vulnerable
 
 		logger.Debug(fmt.Sprintf("%d vulnerable packages remaining", len(vulnerablePackages)))
 
 	}
 
+	// result is the scan of the tree as it is now: after the last fix, or
+	// before a failed fix whose changes were rolled back.
+	removedIgnores, err := nancy.PruneIgnores(path.Join(cwd, DefaultNancyIgnorePath), result)
+	if err != nil {
+		return errors.Cause(err)
+	}
+
 	logging.LogSection(logger, "Summary")
 	LogFixReasonSummary(logger, fixReasonSummary)
 	LogOverdueIgnores(logger, overdueIgnores)
+	LogRemovedIgnores(logger, removedIgnores)
 
 	return nil
 }
@@ -549,11 +558,11 @@ func checkVulnerabilityFixed(
 	cwd string,
 	name modules.PackageName,
 ) (bool, error) {
-	newVulnerablePackages, err := getVulnerablePackages(logger, cwd)
+	result, err := scan(logger, cwd)
 	if err != nil {
 		return false, errors.Cause(err)
 	}
-	if nancy.VulnerablePackagesContain(newVulnerablePackages, name) {
+	if nancy.VulnerablePackagesContain(result.Vulnerable, name) {
 		return false, nil
 	}
 	return true, nil

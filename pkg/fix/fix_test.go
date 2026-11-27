@@ -182,21 +182,21 @@ func writeApp(t *testing.T, proxy, cwd, vulnVersion string, replaced bool) {
 func fakeScan(t *testing.T, vulnerable []string) {
 	t.Helper()
 
-	original := getVulnerablePackages
-	t.Cleanup(func() { getVulnerablePackages = original })
+	original := scan
+	t.Cleanup(func() { scan = original })
 
-	getVulnerablePackages = func(_ *pterm.Logger, dir string) ([]nancy.VulnerablePackage, error) {
+	scan = func(_ *pterm.Logger, dir string) (nancy.ScanResult, error) {
 		version := requiredVersion(t, dir, vulnModule)
 		for _, v := range vulnerable {
 			if v == version {
-				return []nancy.VulnerablePackage{{
+				return nancy.ScanResult{Vulnerable: []nancy.VulnerablePackage{{
 					Name:            vulnModule,
 					Version:         modules.SemanticVersion(version),
 					Vulnerabilities: []nancy.Vulnerability{{ID: cve}},
-				}}, nil
+				}}}, nil
 			}
 		}
-		return nil, nil
+		return nancy.ScanResult{}, nil
 	}
 }
 
